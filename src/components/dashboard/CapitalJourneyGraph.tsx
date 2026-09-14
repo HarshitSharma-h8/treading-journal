@@ -103,6 +103,19 @@ export function CapitalJourneyGraph({ data, profitGuardrail, lossGuardrail, base
                 </p>
               </>
             )}
+            
+            {data.guardrailHit === 'PROFIT' && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <p className="text-success font-semibold text-sm">🟢 Profit Guardrail Reached</p>
+                <p className="text-muted-foreground text-xs">Consider protecting some gains</p>
+              </div>
+            )}
+            {data.guardrailHit === 'LOSS' && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <p className="text-danger font-semibold text-sm">🔴 Loss Guardrail Reached</p>
+                <p className="text-muted-foreground text-xs">Consider taking a break and reviewing your trades</p>
+              </div>
+            )}
           </div>
         </div>
       );

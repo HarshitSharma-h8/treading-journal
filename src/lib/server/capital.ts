@@ -9,6 +9,7 @@ export interface CapitalPoint {
   amount?: number;
   tradeId?: string;
   capitalEventId?: string;
+  guardrailHit?: "PROFIT" | "LOSS";
 }
 
 export async function getCapitalHistory(userId: string) {
@@ -34,10 +35,12 @@ export async function getCapitalHistory(userId: string) {
     },
   });
 
-  const activeBreak = await prisma.guardrailEvent.findFirst({
-    where: { userId, status: "ACTIVE" },
+  const guardrailEvents = await prisma.guardrailEvent.findMany({
+    where: { userId },
     orderBy: { eventDate: "desc" },
   });
+  
+  const activeBreak = guardrailEvents.find(e => e.status === "ACTIVE");
 
   // Combine and sort events chronologically
   const allEvents = [
@@ -71,6 +74,11 @@ export async function getCapitalHistory(userId: string) {
   const journey: CapitalPoint[] = [];
   let currentBalance = 0;
   let activeBaseCapital = 0; // Starts with STARTING_CAPITAL or CAPITAL_RESET
+  
+  let profitHitState = false;
+  let lossHitState = false;
+  let lastProfitHitDate: Date | null = null;
+  let lastLossHitDate: Date | null = null;
 
   for (const event of allEvents) {
     const dateStr = new Date(event.date).toLocaleDateString("en-US", {
@@ -79,9 +87,16 @@ export async function getCapitalHistory(userId: string) {
       timeZone: "Asia/Kolkata",
     });
 
+    let amount = 0;
+    let eventType: any;
+    let tradeId = undefined;
+    let capitalEventId = undefined;
+
     if (event.type === "CAPITAL_EVENT") {
       const ce = event.data as typeof capitalEvents[0];
-      const amount = Number(ce.amount);
+      amount = Number(ce.amount);
+      eventType = ce.type;
+      capitalEventId = ce.id;
 
       if (ce.type === CapitalEventType.STARTING_CAPITAL) {
         currentBalance = amount;
@@ -96,39 +111,75 @@ export async function getCapitalHistory(userId: string) {
       } else if (ce.type === CapitalEventType.ADJUSTMENT) {
         currentBalance += amount;
       }
-
-      journey.push({
-        date: dateStr,
-        rawDate: event.date,
-        balance: currentBalance,
-        eventType: ce.type as any,
-        amount: amount,
-        capitalEventId: ce.id,
-      });
     } else if (event.type === "TRADE") {
       const tr = event.data as typeof trades[0];
-      const pnl = Number(tr.pnl);
-      currentBalance += pnl;
-
-      journey.push({
-        date: dateStr,
-        rawDate: event.date,
-        balance: currentBalance,
-        eventType: "TRADE",
-        amount: pnl,
-        tradeId: tr.id,
-      });
+      amount = Number(tr.pnl);
+      eventType = "TRADE";
+      tradeId = tr.id;
+      currentBalance += amount;
     }
+
+    let guardrailHit: "PROFIT" | "LOSS" | undefined = undefined;
+
+    if (guardrails?.profitGuardrail) {
+      const pg = Number(guardrails.profitGuardrail);
+      if (currentBalance >= pg && !profitHitState) {
+        guardrailHit = "PROFIT";
+        profitHitState = true;
+        lastProfitHitDate = event.date;
+      } else if (currentBalance < pg) {
+        profitHitState = false;
+      }
+    }
+
+    if (guardrails?.lossGuardrail) {
+      const lg = Number(guardrails.lossGuardrail);
+      if (currentBalance <= lg && !lossHitState) {
+        guardrailHit = "LOSS";
+        lossHitState = true;
+        lastLossHitDate = event.date;
+      } else if (currentBalance > lg) {
+        lossHitState = false;
+      }
+    }
+
+    journey.push({
+      date: dateStr,
+      rawDate: event.date,
+      balance: currentBalance,
+      eventType,
+      amount,
+      tradeId,
+      capitalEventId,
+      guardrailHit,
+    });
   }
 
   // Find the current status based on balance and guardrails
   let status = "NORMAL";
+  
   if (activeBreak) {
     status = "BREAK_ACTIVE";
   } else if (guardrails?.profitGuardrail && currentBalance >= Number(guardrails.profitGuardrail)) {
-    status = "PROFIT_GUARDRAIL_HIT";
+    const isContinued = guardrailEvents.some(e => 
+      e.guardrailType === "PROFIT" && 
+      e.status === "CONTINUED" && 
+      lastProfitHitDate && 
+      e.eventDate.getTime() >= lastProfitHitDate.getTime()
+    );
+    if (!isContinued) {
+      status = "PROFIT_GUARDRAIL_HIT";
+    }
   } else if (guardrails?.lossGuardrail && currentBalance <= Number(guardrails.lossGuardrail)) {
-    status = "LOSS_GUARDRAIL_HIT";
+    const isContinued = guardrailEvents.some(e => 
+      e.guardrailType === "LOSS" && 
+      e.status === "CONTINUED" && 
+      lastLossHitDate && 
+      e.eventDate.getTime() >= lastLossHitDate.getTime()
+    );
+    if (!isContinued) {
+      status = "LOSS_GUARDRAIL_HIT";
+    }
   } else {
     if (guardrails?.profitGuardrail) {
       const pg = Number(guardrails.profitGuardrail);
