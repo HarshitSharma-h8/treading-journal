@@ -8,15 +8,25 @@ datasource db {
 }
 
 model User {
-  id           String         @id @default(uuid())
-  email        String         @unique
-  passwordHash String
-  name         String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  trades       Trade[]
-  strategies   Strategy[]
-  journalEntries JournalEntry[]
+  id                  String         @id @default(uuid())
+  email               String         @unique
+  passwordHash        String
+  name                String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  
+  // Capital Profile & Guardrails
+  experienceLevel     String?
+  primaryMarket       String?
+  onboardingCompleted Boolean        @default(false)
+  profitGuardrail     Decimal?       @db.Decimal(18, 4)
+  lossGuardrail       Decimal?       @db.Decimal(18, 4)
+
+  trades              Trade[]
+  strategies          Strategy[]
+  journalEntries      JournalEntry[]
+  capitalEvents       CapitalEvent[]
+  guardrailEvents     GuardrailEvent[]
 }
 
 enum TradeType {
@@ -100,4 +110,48 @@ model Screenshot {
   createdAt        DateTime @default(now())
 
   trade            Trade    @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+}
+
+enum CapitalEventType {
+  STARTING_CAPITAL
+  DEPOSIT
+  WITHDRAWAL
+  CAPITAL_RESET
+  ADJUSTMENT
+}
+
+model CapitalEvent {
+  id        String           @id @default(uuid())
+  userId    String
+  type      CapitalEventType
+  amount    Decimal          @db.Decimal(18, 4)
+  eventDate DateTime         @default(now())
+  note      String?
+  createdAt DateTime         @default(now())
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([eventDate])
+}
+
+enum GuardrailType {
+  PROFIT
+  LOSS
+}
+
+model GuardrailEvent {
+  id             String        @id @default(uuid())
+  userId         String
+  eventDate      DateTime      @default(now())
+  triggerBalance Decimal       @db.Decimal(18, 4)
+  reason         String?
+  guardrailType  GuardrailType
+  status         String        @default("ACTIVE") // ACTIVE or RESUMED
+  createdAt      DateTime      @default(now())
+
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([eventDate])
 }

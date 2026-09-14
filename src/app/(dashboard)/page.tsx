@@ -9,6 +9,10 @@ import { DollarSign, TrendingUp, Activity, Percent } from "lucide-react";
 import { getSession } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 import { getDashboardMetrics } from "@/lib/server/metrics";
+import { getCapitalHistory } from "@/lib/server/capital";
+import { CapitalJourneyGraph } from "@/components/dashboard/CapitalJourneyGraph";
+import { GuardrailStatusCard } from "@/components/dashboard/GuardrailStatusCard";
+import { OnboardingModal } from "@/components/dashboard/OnboardingModal";
 
 export default async function Dashboard() {
   const session = await getSession();
@@ -16,12 +20,41 @@ export default async function Dashboard() {
     redirect("/login");
   }
 
-  const metrics = await getDashboardMetrics(session.userId as string);
+  const userId = session.userId as string;
+  const metrics = await getDashboardMetrics(userId);
+  const capitalData = await getCapitalHistory(userId);
   const hasTrades = metrics.totalTrades > 0;
+
+  const showOnboarding = !capitalData.profile?.onboardingCompleted;
 
   return (
     <div className="flex flex-col gap-6">
+      {showOnboarding && <OnboardingModal />}
+      
       <DashboardHeader />
+
+      {/* Capital Journey Row */}
+      {!showOnboarding && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 h-[400px]">
+            <CapitalJourneyGraph 
+              data={capitalData.journey} 
+              profitGuardrail={capitalData.profile?.profitGuardrail ? Number(capitalData.profile.profitGuardrail) : null}
+              lossGuardrail={capitalData.profile?.lossGuardrail ? Number(capitalData.profile.lossGuardrail) : null}
+              baseCapital={capitalData.activeBaseCapital}
+            />
+          </div>
+          <div className="lg:col-span-1">
+            <GuardrailStatusCard 
+              currentBalance={capitalData.currentBalance}
+              baseCapital={capitalData.activeBaseCapital}
+              profitGuardrail={capitalData.profile?.profitGuardrail ? Number(capitalData.profile.profitGuardrail) : null}
+              lossGuardrail={capitalData.profile?.lossGuardrail ? Number(capitalData.profile.lossGuardrail) : null}
+              status={capitalData.status}
+            />
+          </div>
+        </div>
+      )}
 
       {hasTrades ? (
         <>
