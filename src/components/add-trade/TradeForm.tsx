@@ -11,6 +11,7 @@ import { TradeType, Emotion, MarketCondition, Trade } from "@/lib/types";
 import { createTrade, updateTrade, getTrade } from "@/lib/api/trades";
 import { calculatePnL, calculateRiskReward } from "@/lib/trading-utils";
 import { useEffect } from "react";
+import { PenLine } from "lucide-react";
 
 export function TradeForm({ tradeId }: { tradeId?: string }) {
   const router = useRouter();
@@ -284,6 +285,24 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
         tradeSetup={tradeSetup}
         setTradeSetup={setTradeSetup}
       />
+
+      {/* Journal Section */}
+      <div className="space-y-6 mt-8">
+        <div className="flex items-center gap-2 pb-2 border-b border-border/50">
+          <PenLine className="w-4 h-4 text-primary" />
+          <h3 className="font-semibold text-sm tracking-widest text-foreground/50 uppercase">Journal</h3>
+        </div>
+        
+        <div className="space-y-2">
+          <textarea
+            value={quickNote}
+            onChange={(e) => setQuickNote(e.target.value)}
+            placeholder="What were you thinking when you took this trade?"
+            className="w-full bg-card border border-border rounded-xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow resize-y min-h-[120px] text-foreground/90 leading-relaxed"
+            maxLength={2000}
+          />
+        </div>
+      </div>
 
       <PostTradeReflection
         whatWentWell={whatWentWell}

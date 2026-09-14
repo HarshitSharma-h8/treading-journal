@@ -1,3 +1,4 @@
+import { CalendarHeatmap } from "@/components/dashboard/CalendarHeatmap";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { PnLChart } from "@/components/dashboard/PnLChart";
@@ -60,13 +61,14 @@ export default async function Dashboard() {
               <PnLChart data={metrics.chartData} />
             </div>
             <div className="lg:col-span-1">
-              <PerformanceSummary metrics={metrics} />
+              <PerformanceSummary metrics={metrics as any} />
             </div>
           </div>
 
-          {/* Recent Trades Row */}
-          <div className="w-full">
-            <RecentTrades trades={metrics.recentTrades} />
+          {/* Bottom Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
+            <CalendarHeatmap />
+            <RecentTrades trades={metrics.recentTrades as any} />
           </div>
         </>
       ) : (

@@ -122,16 +122,6 @@ export function TradeContextSection({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground/80">Quick note</label>
-        <textarea
-          value={quickNote}
-          onChange={(e) => setQuickNote(e.target.value)}
-          placeholder="What were you thinking when you took this trade?"
-          className="w-full bg-card border border-border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow resize-y min-h-[80px]"
-          maxLength={500}
-        />
-      </div>
     </div>
   );
 }

@@ -1,5 +1,18 @@
 import { Trade } from "@/lib/types";
 
+// Helper to ensure Decimal/string types from API are parsed into actual numbers
+function parseTrade(trade: any): Trade {
+  return {
+    ...trade,
+    pnl: Number(trade.pnl || 0),
+    entryPrice: Number(trade.entryPrice || 0),
+    exitPrice: Number(trade.exitPrice || 0),
+    quantity: Number(trade.quantity || 0),
+    stopLoss: trade.stopLoss != null ? Number(trade.stopLoss) : undefined,
+    target: trade.target != null ? Number(trade.target) : undefined,
+  };
+}
+
 export async function getTrades(): Promise<Trade[]> {
   const response = await fetch("/api/trades", {
     method: "GET",
@@ -12,7 +25,8 @@ export async function getTrades(): Promise<Trade[]> {
     throw new Error("Failed to fetch trades");
   }
 
-  return response.json();
+  const data = await response.json();
+  return data.map(parseTrade);
 }
 
 export async function getTrade(id: string): Promise<Trade | undefined> {
@@ -31,7 +45,8 @@ export async function getTrade(id: string): Promise<Trade | undefined> {
     throw new Error("Failed to fetch trade");
   }
 
-  return response.json();
+  const data = await response.json();
+  return parseTrade(data);
 }
 
 export async function createTrade(trade: Partial<Trade>): Promise<Trade> {
@@ -48,7 +63,8 @@ export async function createTrade(trade: Partial<Trade>): Promise<Trade> {
     throw new Error(errorData.error || "Failed to create trade");
   }
 
-  return response.json();
+  const data = await response.json();
+  return parseTrade(data);
 }
 
 export async function updateTrade(id: string, trade: Partial<Trade>): Promise<Trade> {
@@ -65,7 +81,8 @@ export async function updateTrade(id: string, trade: Partial<Trade>): Promise<Tr
     throw new Error(errorData.error || "Failed to update trade");
   }
 
-  return response.json();
+  const data = await response.json();
+  return parseTrade(data);
 }
 
 export async function deleteTrade(id: string): Promise<void> {

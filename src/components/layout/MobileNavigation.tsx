@@ -24,7 +24,7 @@ const mainNavItems = [
 
 const moreNavItems = [
   { name: "Analytics", href: "/analytics", icon: <BarChart3 className="w-5 h-5" /> },
-  { name: "Journal", href: "/journal", icon: <BookOpen className="w-5 h-5" /> },
+  { name: "Trade Journal", href: "/journal", icon: <BookOpen className="w-5 h-5" /> },
   { name: "Settings", href: "/settings", icon: <Settings className="w-5 h-5" /> },
 ];
 

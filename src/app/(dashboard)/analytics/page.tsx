@@ -87,7 +87,7 @@ export default function AnalyticsPage() {
     );
   }
 
-  const hasTrades = data?.summary?.totalTrades > 0;
+  const hasTrades = (data?.summary?.totalTrades ?? 0) > 0;
 
   return (
     <div className="flex flex-col gap-6 pb-12">
@@ -141,7 +141,9 @@ export default function AnalyticsPage() {
       ) : (
         <>
           {/* Core Metrics Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {data && (
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <MetricCard
               label="TOTAL P&L"
               value={`${data.summary.totalPnl >= 0 ? '+' : ''}${formatCurrency(data.summary.totalPnl)}`}
@@ -220,8 +222,8 @@ export default function AnalyticsPage() {
                     <Tooltip 
                       contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '12px' }}
                       itemStyle={{ color: 'hsl(var(--foreground))' }}
-                      labelFormatter={(dateStr: string) => new Date(dateStr).toLocaleDateString()}
-                      formatter={(val: number) => [`₹${Number(val).toLocaleString()}`, 'Cumulative P&L']}
+                      labelFormatter={(dateStr: any) => new Date(dateStr).toLocaleDateString()}
+                      formatter={(val: any) => [`₹${Number(val).toLocaleString()}`, 'Cumulative P&L']}
                     />
                     <Line 
                       type="monotone" 
@@ -410,6 +412,8 @@ export default function AnalyticsPage() {
               </div>
             </div>
           </div>
+          </>
+          )}
         </>
       )}
     </div>

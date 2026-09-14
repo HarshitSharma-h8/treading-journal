@@ -62,7 +62,8 @@ export function PnLChart({ data }: PnLChartProps) {
                 }}
                 itemStyle={{ color: 'var(--color-primary)', fontWeight: 'bold' }}
                 labelStyle={{ color: 'var(--color-foreground)', opacity: 0.7, marginBottom: '4px' }}
-                formatter={(value: number) => [`₹${value}`, 'P&L']}            />
+                labelFormatter={(label) => new Date(label as any).toLocaleDateString()}
+                formatter={(value: any) => [`₹${value.toLocaleString()}`, "P&L"]}            />
               <Area 
                 type="monotone" 
                 dataKey="pnl" 
