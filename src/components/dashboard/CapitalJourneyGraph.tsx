@@ -117,7 +117,7 @@ export function CapitalJourneyGraph({ data, profitGuardrail, lossGuardrail, base
     return (
       <g>
         <rect 
-          x={x + width - badgeWidth} 
+          x={x + width + 10} 
           y={y - badgeHeight / 2} 
           width={badgeWidth} 
           height={badgeHeight} 
@@ -125,7 +125,7 @@ export function CapitalJourneyGraph({ data, profitGuardrail, lossGuardrail, base
           rx={4}
         />
         <text 
-          x={x + width - badgeWidth / 2} 
+          x={x + width + 10 + badgeWidth / 2} 
           y={y + 4} 
           fill={color} 
           fontSize={12} 
@@ -135,7 +135,7 @@ export function CapitalJourneyGraph({ data, profitGuardrail, lossGuardrail, base
           ₹{value.toLocaleString()}
         </text>
         <text 
-          x={x + width - badgeWidth / 2} 
+          x={x + width + 10 + badgeWidth / 2} 
           y={y + 24} 
           fill={bgColor} 
           fontSize={10} 
@@ -148,11 +148,11 @@ export function CapitalJourneyGraph({ data, profitGuardrail, lossGuardrail, base
   };
 
   return (
-    <div className="bg-card border border-border rounded-xl p-6 shadow-sm flex flex-col h-full w-full">
-      <div className="mb-6 flex justify-between items-start">
+    <div className="bg-card border border-border rounded-xl p-6 shadow-sm flex flex-col h-[450px] w-full">
+      <div className="mb-6 flex justify-between items-start shrink-0">
         <div>
           <h3 className="text-xl font-bold text-foreground mb-1">Capital Journey</h3>
-          <p className="text-sm text-muted-foreground">Your trading account over time</p>
+          <p className="text-sm text-foreground/50">Your trading account over time</p>
         </div>
         <select className="bg-background border border-border text-foreground text-sm rounded-md px-3 py-1.5 focus:outline-none">
           <option>Last 6 Months</option>
@@ -160,71 +160,71 @@ export function CapitalJourneyGraph({ data, profitGuardrail, lossGuardrail, base
         </select>
       </div>
 
-      <div className="flex-1 w-full h-[300px]">
+      <div className="flex-1 w-full min-h-0">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData} margin={{ top: 10, right: 90, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="splitColor" x1="0" y1="0" x2="0" y2="1">
-                <stop offset={off} stopColor="var(--color-success)" stopOpacity={1} />
-                <stop offset={off} stopColor="var(--color-danger)" stopOpacity={1} />
-              </linearGradient>
-            </defs>
-            <XAxis 
-              dataKey="date" 
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "var(--color-muted-foreground)" }}
-              minTickGap={30}
-              dy={10}
-            />
-            <YAxis 
-              domain={[minVal, maxVal]}
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "var(--color-muted-foreground)" }}
-              tickFormatter={(val) => `₹${val.toLocaleString()}`}
-              width={70}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--color-border)', strokeWidth: 1, strokeDasharray: '4 4' }} />
-            
-            {profitGuardrail && (
-              <ReferenceLine 
-                y={profitGuardrail} 
-                stroke="var(--color-success)" 
-                strokeDasharray="4 4" 
-                strokeOpacity={0.8}
-                label={(props) => <CustomBadge {...props} value={profitGuardrail} text="Profit Guardrail" color="#ffffff" bgColor="var(--color-success)" />}
+          <ComposedChart data={chartData} margin={{ top: 10, right: 110, left: 10, bottom: 0 }}>
+              <defs>
+                <linearGradient id="splitColor" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset={off} stopColor="var(--color-success)" stopOpacity={1} />
+                  <stop offset={off} stopColor="var(--color-danger)" stopOpacity={1} />
+                </linearGradient>
+              </defs>
+              <XAxis 
+                dataKey="date" 
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: "#94a3b8" }}
+                minTickGap={30}
+                dy={10}
               />
-            )}
-            
-            {lossGuardrail && (
-              <ReferenceLine 
-                y={lossGuardrail} 
-                stroke="var(--color-danger)" 
-                strokeDasharray="4 4" 
-                strokeOpacity={0.8}
-                label={(props) => <CustomBadge {...props} value={lossGuardrail} text="Loss Guardrail" color="#ffffff" bgColor="var(--color-danger)" />}
+              <YAxis 
+                domain={[minVal, maxVal]}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: "#94a3b8" }}
+                tickFormatter={(val) => `₹${val.toLocaleString()}`}
+                width={70}
               />
-            )}
+              <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--color-border)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+              
+              {profitGuardrail && (
+                <ReferenceLine 
+                  y={profitGuardrail} 
+                  stroke="var(--color-success)" 
+                  strokeDasharray="4 4" 
+                  strokeOpacity={0.8}
+                  label={(props) => <CustomBadge {...props} value={profitGuardrail} text="Profit Guardrail" color="#ffffff" bgColor="var(--color-success)" />}
+                />
+              )}
+              
+              {lossGuardrail && (
+                <ReferenceLine 
+                  y={lossGuardrail} 
+                  stroke="var(--color-danger)" 
+                  strokeDasharray="4 4" 
+                  strokeOpacity={0.8}
+                  label={(props) => <CustomBadge {...props} value={lossGuardrail} text="Loss Guardrail" color="#ffffff" bgColor="var(--color-danger)" />}
+                />
+              )}
 
-            <ReferenceLine 
-              y={baseCapital} 
-              stroke="var(--color-primary)" 
-              strokeOpacity={0.8}
-              strokeDasharray="4 4"
-              label={(props) => <CustomBadge {...props} value={baseCapital} text="Base Capital" color="#ffffff" bgColor="var(--color-primary)" />}
-            />
+              <ReferenceLine 
+                y={baseCapital} 
+                stroke="var(--color-primary)" 
+                strokeOpacity={0.8}
+                strokeDasharray="4 4"
+                label={(props) => <CustomBadge {...props} value={baseCapital} text="Base Capital" color="#ffffff" bgColor="var(--color-primary)" />}
+              />
 
-            <Line 
-              type="monotone" 
-              dataKey="balance" 
-              stroke="url(#splitColor)" 
-              strokeWidth={3}
-              dot={{ r: 5, strokeWidth: 2, fill: "var(--color-card)", stroke: "url(#splitColor)" }}
-              activeDot={{ r: 7, fill: "var(--color-success)", strokeWidth: 0, className: "drop-shadow-[0_0_8px_var(--color-success)]" }}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
+              <Line 
+                type="monotone" 
+                dataKey="balance" 
+                stroke="url(#splitColor)" 
+                strokeWidth={3}
+                dot={{ r: 5, strokeWidth: 2, fill: "var(--color-card)", stroke: "url(#splitColor)" }}
+                activeDot={{ r: 7, fill: "var(--color-success)", strokeWidth: 0, className: "drop-shadow-[0_0_8px_var(--color-success)]" }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
       </div>
     </div>
   );
