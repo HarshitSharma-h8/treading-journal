@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  trades       Trade[]
+  strategies   Strategy[]
+  journalEntries JournalEntry[]
+}
+
+enum TradeType {
+  BUY
+  SELL
+}
+
+model Trade {
+  id              String      @id @default(uuid())
+  userId          String
+  symbol          String
+  tradeType       TradeType
+  entryPrice      Decimal     @db.Decimal(18, 4)
+  exitPrice       Decimal     @db.Decimal(18, 4)
+  quantity        Decimal     @db.Decimal(18, 4)
+  stopLoss        Decimal?    @db.Decimal(18, 4)
+  target          Decimal?    @db.Decimal(18, 4)
+  pnl             Decimal     @db.Decimal(18, 4)
+  strategyId      String?
+  emotion         String?
+  marketCondition String?
+  tradeSetup      String?
+  planFollowed    Boolean?
+  quickNote       String?
+  whatWentWell    String?
+  whatWentWrong   String?
+  lesson          String?
+  tradeDate       DateTime    @default(now())
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  strategy        Strategy?   @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  screenshots     Screenshot[]
+
+  @@index([userId])
+  @@index([tradeDate])
+  @@index([symbol])
+  @@index([strategyId])
+  @@index([userId, tradeDate])
+}
+
+model Strategy {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  trades      Trade[]
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model JournalEntry {
+  id             String   @id @default(uuid())
+  userId         String
+  entryDate      DateTime @default(now())
+  marketThoughts String?
+  whatWentWell   String?
+  whatWentWrong  String?
+  mistakes       String?
+  lessons        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entryDate])
+}
+
+model Screenshot {
+  id               String   @id @default(uuid())
+  tradeId          String
+  storageKey       String
+  originalFilename String
+  mimeType         String
+  fileSize         Int
+  createdAt        DateTime @default(now())
+
+  trade            Trade    @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+}
