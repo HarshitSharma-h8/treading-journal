@@ -18,6 +18,10 @@ export const tradeSchema = z.object({
   whatWentWrong: z.string().optional(),
   lesson: z.string().optional(),
   tradeDate: z.string().optional().transform((str) => (str ? new Date(str) : undefined)),
+  tradeStyle: z.string().optional(),
+  stopLossSource: z.string().optional(),
+  targetSource: z.string().optional(),
+  journalEntryId: z.string().optional(),
 });
 
 export const updateTradeSchema = tradeSchema.partial();

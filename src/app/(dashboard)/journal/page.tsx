@@ -79,9 +79,26 @@ export default function TradeJournalPage() {
 
   return (
     <div className="container mx-auto p-4 md:p-6 max-w-5xl space-y-8 pb-20">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-1">TRADE JOURNAL</h1>
-        <p className="text-foreground/60">Review your past trades and their reasoning.</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight mb-1">TRADE JOURNAL</h1>
+          <p className="text-foreground/60">Review your past trades and their reasoning.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link 
+            href="/import-trades" 
+            className="inline-flex items-center gap-2 bg-card border border-border text-foreground px-5 py-2.5 rounded-lg font-semibold hover:border-primary/50 transition-colors"
+          >
+            Import Screenshot
+          </Link>
+          <Link 
+            href="/add-trade" 
+            className="inline-flex items-center gap-2 bg-primary text-background px-5 py-2.5 rounded-lg font-semibold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+          >
+            <span className="w-5 h-5 flex items-center justify-center">+</span>
+            Add Trade
+          </Link>
+        </div>
       </div>
 
       {/* Filters & View Toggle */}

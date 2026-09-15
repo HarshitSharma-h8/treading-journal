@@ -172,13 +172,21 @@ export default function TradesPage() {
             <p className="text-foreground/60 text-lg">Your trading history</p>
           </div>
           
-          <Link 
-            href="/add-trade" 
-            className="inline-flex items-center gap-2 bg-primary text-background px-5 py-2.5 rounded-lg font-semibold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
-          >
-            <Plus className="w-5 h-5" />
-            Add Trade
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link 
+              href="/import-trades" 
+              className="inline-flex items-center gap-2 bg-card border border-border text-foreground px-5 py-2.5 rounded-lg font-semibold hover:border-primary/50 transition-colors"
+            >
+              Import Screenshot
+            </Link>
+            <Link 
+              href="/add-trade" 
+              className="inline-flex items-center gap-2 bg-primary text-background px-5 py-2.5 rounded-lg font-semibold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+            >
+              <Plus className="w-5 h-5" />
+              Add Trade
+            </Link>
+          </div>
         </div>
 
         {trades.length === 0 ? (

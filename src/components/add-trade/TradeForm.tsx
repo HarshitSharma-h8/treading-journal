@@ -23,6 +23,7 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
   const [entryPrice, setEntryPrice] = useState<number | "">("");
   const [exitPrice, setExitPrice] = useState<number | "">("");
   const [quantity, setQuantity] = useState<number | "">("");
+  const [tradeStyle, setTradeStyle] = useState<string>("INTRADAY");
 
   // Optional fields
   const [strategy, setStrategy] = useState("");
@@ -51,6 +52,7 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
             setEntryPrice(existingTrade.entryPrice);
             setExitPrice(existingTrade.exitPrice);
             setQuantity(existingTrade.quantity);
+            if (existingTrade.tradeStyle) setTradeStyle(existingTrade.tradeStyle);
             if (existingTrade.strategyId) setStrategy(existingTrade.strategyId);
             if (existingTrade.stopLoss) setStopLoss(existingTrade.stopLoss);
             if (existingTrade.target) setTarget(existingTrade.target);
@@ -114,6 +116,7 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
       entryPrice: entryPrice as number,
       exitPrice: exitPrice as number,
       quantity: quantity as number,
+      tradeStyle,
       
       // Strategy is not yet supported in the backend properly (foreign key to Strategy table), so we don't send it.
       ...(stopLoss !== "" && { stopLoss: stopLoss as number }),
@@ -176,9 +179,26 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
           </div>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground/80">Trade Type <span className="text-danger">*</span></label>
-          <TradeTypeSelector value={tradeType} onChange={setTradeType} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground/80">Direction <span className="text-danger">*</span></label>
+            <TradeTypeSelector value={tradeType} onChange={setTradeType} />
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground/80">Trade Type <span className="text-danger">*</span></label>
+            <select
+              value={tradeStyle}
+              onChange={(e) => setTradeStyle(e.target.value)}
+              className="w-full bg-card border border-border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow appearance-none"
+            >
+              <option value="INTRADAY">Intraday</option>
+              <option value="SWING">Swing</option>
+              <option value="POSITIONAL">Positional</option>
+              <option value="SCALPING">Scalping</option>
+              <option value="DELIVERY">Delivery</option>
+            </select>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
