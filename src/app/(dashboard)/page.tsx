@@ -44,26 +44,30 @@ export default async function Dashboard() {
               value={`${metrics.todayPnl >= 0 ? '+' : ''}₹${metrics.todayPnl.toLocaleString()}`} 
               icon={<DollarSign className="w-5 h-5" />}
               trend={metrics.todayPnl >= 0 ? "up" : "down"}
-              accentColor={metrics.todayPnl >= 0 ? "var(--color-primary)" : "var(--color-destructive)"}
+              accentColor={metrics.todayPnl >= 0 ? "var(--success)" : "var(--danger)"}
+              description="Total profit or loss for today's trades"
             />
             <MetricCard 
               label="This Week" 
               value={`${metrics.weekPnl >= 0 ? '+' : ''}₹${metrics.weekPnl.toLocaleString()}`} 
               icon={<TrendingUp className="w-5 h-5" />}
               trend={metrics.weekPnl >= 0 ? "up" : "down"}
-              accentColor={metrics.weekPnl >= 0 ? "var(--color-success)" : "var(--color-destructive)"}
+              accentColor={metrics.weekPnl >= 0 ? "var(--success)" : "var(--danger)"}
+              description="Total profit or loss for this week's trades"
             />
             <MetricCard 
               label="Win Rate" 
               value={`${metrics.winRate}%`} 
               icon={<Percent className="w-5 h-5" />}
-              accentColor="var(--color-accent)"
+              accentColor="var(--accent)"
+              description="Percentage of trades that were profitable"
             />
             <MetricCard 
               label="Profit Factor" 
               value={metrics.profitFactor === Infinity ? '∞' : metrics.profitFactor} 
               icon={<Activity className="w-5 h-5" />}
-              accentColor="var(--color-primary)"
+              accentColor="var(--primary)"
+              description="Gross profit divided by gross loss. Above 1 means profitable."
             />
           </div>
 

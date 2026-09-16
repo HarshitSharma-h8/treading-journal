@@ -28,6 +28,12 @@ export function GuardrailStatusCard({
   const [showWithdrawalInput, setShowWithdrawalInput] = useState(false);
   const [showResumeInput, setShowResumeInput] = useState(false);
   const [newCapitalAmount, setNewCapitalAmount] = useState("");
+  
+  const [showNewCycleInput, setShowNewCycleInput] = useState(false);
+  const [newBaseCapital, setNewBaseCapital] = useState("");
+  const [newProfitGuardrail, setNewProfitGuardrail] = useState("");
+  const [newLossGuardrail, setNewLossGuardrail] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleRecordWithdrawal = async () => {
     if (!withdrawalAmount || isNaN(Number(withdrawalAmount))) return;
@@ -105,6 +111,38 @@ export function GuardrailStatusCard({
       router.refresh();
     } catch (e) {
       console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartNewCycle = async () => {
+    setErrorMsg("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/capital/cycle/new", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          baseCapital: Number(newBaseCapital),
+          profitGuardrail: Number(newProfitGuardrail),
+          lossGuardrail: Number(newLossGuardrail),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMsg(data.error || "Failed to start new cycle");
+        setLoading(false);
+        return;
+      }
+      setShowNewCycleInput(false);
+      setNewBaseCapital("");
+      setNewProfitGuardrail("");
+      setNewLossGuardrail("");
+      router.refresh();
+    } catch (e) {
+      console.error(e);
+      setErrorMsg("An error occurred");
     } finally {
       setLoading(false);
     }
@@ -237,31 +275,42 @@ export function GuardrailStatusCard({
                 Your capital is above your profit guardrail. Consider protecting some of your gains.
               </p>
               {!showWithdrawalInput ? (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setWithdrawalAmount((currentBalance > baseCapital ? currentBalance - baseCapital : 0).toString());
-                      setShowWithdrawalInput(true);
-                    }}
-                    className="flex-[2] bg-success text-success-foreground py-1.5 px-3 rounded text-xs font-semibold hover:bg-success/90 transition-colors"
-                  >
-                    Withdraw
-                  </button>
-                  <button
-                    onClick={() => handleContinue("PROFIT")}
-                    disabled={loading}
-                    className="flex-1 bg-transparent border border-success/30 text-success py-1.5 px-3 rounded text-xs font-medium hover:bg-success/10 transition-colors"
-                  >
-                    Continue
-                  </button>
-                  <button
-                    onClick={() => handleTakeBreak("PROFIT", "Profit guardrail hit")}
-                    disabled={loading}
-                    className="flex-1 bg-transparent border border-success/30 text-success py-1.5 px-3 rounded text-xs font-medium hover:bg-success/10 transition-colors"
-                  >
-                    Break
-                  </button>
-                </div>
+                <>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setWithdrawalAmount((currentBalance > baseCapital ? currentBalance - baseCapital : 0).toString());
+                        setShowWithdrawalInput(true);
+                      }}
+                      className="flex-[2] bg-success text-success-foreground py-1.5 px-3 rounded text-xs font-semibold hover:bg-success/90 transition-colors"
+                    >
+                      Withdraw
+                    </button>
+                    <button
+                      onClick={() => handleContinue("PROFIT")}
+                      disabled={loading}
+                      className="flex-1 bg-transparent border border-success/30 text-success py-1.5 px-3 rounded text-xs font-medium hover:bg-success/10 transition-colors"
+                    >
+                      Continue
+                    </button>
+                    <button
+                      onClick={() => handleTakeBreak("PROFIT", "Profit guardrail hit")}
+                      disabled={loading}
+                      className="flex-1 bg-transparent border border-success/30 text-success py-1.5 px-3 rounded text-xs font-medium hover:bg-success/10 transition-colors"
+                    >
+                      Break
+                    </button>
+                  </div>
+                  <div className="mt-2">
+                    <button
+                      onClick={() => setShowNewCycleInput(true)}
+                      disabled={loading}
+                      className="w-full bg-background border border-border text-foreground py-1.5 rounded text-xs font-semibold hover:bg-muted transition-colors"
+                    >
+                      Start New Cycle
+                    </button>
+                  </div>
+                </>
               ) : (
                 <div className="flex flex-col gap-2">
                   <div className="flex justify-between text-[10px] text-muted-foreground px-1">
@@ -304,7 +353,7 @@ export function GuardrailStatusCard({
                 Your capital has reached your loss guardrail. 
                 {/* Consider taking a break and reviewing your trades. */}
               </p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 mb-2">
                 <button
                   onClick={() => handleTakeBreak("LOSS", "Loss guardrail hit")}
                   disabled={loading}
@@ -320,6 +369,13 @@ export function GuardrailStatusCard({
                   Continue
                 </button>
               </div>
+              <button
+                onClick={() => setShowNewCycleInput(true)}
+                disabled={loading}
+                className="w-full bg-background border border-border text-foreground py-1.5 rounded text-xs font-semibold hover:bg-muted transition-colors"
+              >
+                Start New Cycle
+              </button>
             </div>
           )}
 
@@ -365,6 +421,74 @@ export function GuardrailStatusCard({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+          
+          {showNewCycleInput && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+              <div className="bg-card border border-border p-6 rounded-xl w-full max-w-sm shadow-lg">
+                <h3 className="text-lg font-bold mb-2">Start New Capital Cycle</h3>
+                <p className="text-xs text-muted-foreground mb-4">Set your new capital limits.</p>
+                
+                {errorMsg && (
+                  <div className="bg-danger/10 text-danger text-xs p-2 rounded mb-4">
+                    {errorMsg}
+                  </div>
+                )}
+                
+                <div className="space-y-3 mb-5">
+                  <div>
+                    <label className="text-xs font-medium block mb-1">New Base Capital (₹)</label>
+                    <input 
+                      type="number" 
+                      value={newBaseCapital}
+                      onChange={(e) => setNewBaseCapital(e.target.value)}
+                      className="w-full bg-background border border-border rounded py-2 px-3 text-sm focus:outline-none focus:border-primary"
+                      placeholder="e.g. 12000"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium block mb-1">New Profit Guardrail (₹)</label>
+                    <input 
+                      type="number" 
+                      value={newProfitGuardrail}
+                      onChange={(e) => setNewProfitGuardrail(e.target.value)}
+                      className="w-full bg-background border border-border rounded py-2 px-3 text-sm focus:outline-none focus:border-primary"
+                      placeholder="e.g. 14000"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium block mb-1">New Loss Guardrail (₹)</label>
+                    <input 
+                      type="number" 
+                      value={newLossGuardrail}
+                      onChange={(e) => setNewLossGuardrail(e.target.value)}
+                      className="w-full bg-background border border-border rounded py-2 px-3 text-sm focus:outline-none focus:border-primary"
+                      placeholder="e.g. 10000"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      setShowNewCycleInput(false);
+                      setErrorMsg("");
+                    }}
+                    disabled={loading}
+                    className="flex-1 border border-border bg-transparent text-foreground py-2 rounded text-sm font-semibold hover:bg-muted transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleStartNewCycle}
+                    disabled={loading || !newBaseCapital || !newProfitGuardrail || !newLossGuardrail}
+                    className="flex-[2] bg-primary text-primary-foreground py-2 rounded text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    Start New Cycle
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

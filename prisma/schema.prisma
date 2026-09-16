@@ -21,6 +21,7 @@ model User {
   profitGuardrail     Decimal?         @db.Decimal(18, 4)
   capitalEvents       CapitalEvent[]
   guardrailEvents     GuardrailEvent[]
+  capitalCycles       CapitalCycle[]
   journals            Journal[]
   strategies          Strategy[]
   trades              Trade[]
@@ -213,4 +214,19 @@ enum CapitalEventType {
 enum GuardrailType {
   PROFIT
   LOSS
+}
+
+model CapitalCycle {
+  id              String    @id @default(uuid())
+  userId          String
+  baseCapital     Decimal   @db.Decimal(18, 4)
+  profitGuardrail Decimal   @db.Decimal(18, 4)
+  lossGuardrail   Decimal   @db.Decimal(18, 4)
+  startedAt       DateTime  @default(now())
+  endedAt         DateTime?
+  status          String    @default("ACTIVE")
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([startedAt])
 }

@@ -39,6 +39,11 @@ export async function getCapitalHistory(userId: string) {
     where: { userId },
     orderBy: { eventDate: "desc" },
   });
+
+  const capitalCycles = await prisma.capitalCycle.findMany({
+    where: { userId },
+    orderBy: { startedAt: "asc" },
+  });
   
   const activeBreak = guardrailEvents.find(e => e.status === "ACTIVE");
 
@@ -124,10 +129,18 @@ export async function getCapitalHistory(userId: string) {
       currentBalance += amount;
     }
 
+    const eventRawDate = event.date;
+    const activeCycle = capitalCycles.find(c => 
+      eventRawDate >= c.startedAt && (!c.endedAt || eventRawDate <= c.endedAt)
+    );
+
+    const activeProfitGuardrail = activeCycle?.profitGuardrail ? Number(activeCycle.profitGuardrail) : (guardrails?.profitGuardrail ? Number(guardrails.profitGuardrail) : undefined);
+    const activeLossGuardrail = activeCycle?.lossGuardrail ? Number(activeCycle.lossGuardrail) : (guardrails?.lossGuardrail ? Number(guardrails.lossGuardrail) : undefined);
+
     let guardrailHit: "PROFIT" | "LOSS" | undefined = undefined;
 
-    if (guardrails?.profitGuardrail) {
-      const pg = Number(guardrails.profitGuardrail);
+    if (activeProfitGuardrail !== undefined) {
+      const pg = activeProfitGuardrail;
       if (currentBalance >= pg && !profitHitState) {
         guardrailHit = "PROFIT";
         profitHitState = true;
@@ -137,8 +150,8 @@ export async function getCapitalHistory(userId: string) {
       }
     }
 
-    if (guardrails?.lossGuardrail) {
-      const lg = Number(guardrails.lossGuardrail);
+    if (activeLossGuardrail !== undefined) {
+      const lg = activeLossGuardrail;
       if (currentBalance <= lg && !lossHitState) {
         guardrailHit = "LOSS";
         lossHitState = true;
@@ -160,12 +173,16 @@ export async function getCapitalHistory(userId: string) {
     });
   }
 
-  // Find the current status based on balance and guardrails
+  // Use the currently active cycle for status reporting if one exists
+  const activeCycle = capitalCycles.find(c => c.status === "ACTIVE");
+  const currentProfitGuardrail = activeCycle?.profitGuardrail ? Number(activeCycle.profitGuardrail) : (guardrails?.profitGuardrail ? Number(guardrails.profitGuardrail) : undefined);
+  const currentLossGuardrail = activeCycle?.lossGuardrail ? Number(activeCycle.lossGuardrail) : (guardrails?.lossGuardrail ? Number(guardrails.lossGuardrail) : undefined);
+
   let status = "NORMAL";
   
   if (activeBreak) {
     status = "BREAK_ACTIVE";
-  } else if (guardrails?.profitGuardrail && currentBalance >= Number(guardrails.profitGuardrail)) {
+  } else if (currentProfitGuardrail !== undefined && currentBalance >= currentProfitGuardrail) {
     const isContinued = guardrailEvents.some(e => 
       e.guardrailType === "PROFIT" && 
       e.status === "CONTINUED" && 
@@ -175,7 +192,7 @@ export async function getCapitalHistory(userId: string) {
     if (!isContinued) {
       status = "PROFIT_GUARDRAIL_HIT";
     }
-  } else if (guardrails?.lossGuardrail && currentBalance <= Number(guardrails.lossGuardrail)) {
+  } else if (currentLossGuardrail !== undefined && currentBalance <= currentLossGuardrail) {
     const isContinued = guardrailEvents.some(e => 
       e.guardrailType === "LOSS" && 
       e.status === "CONTINUED" && 
@@ -186,14 +203,14 @@ export async function getCapitalHistory(userId: string) {
       status = "LOSS_GUARDRAIL_HIT";
     }
   } else {
-    if (guardrails?.profitGuardrail) {
-      const pg = Number(guardrails.profitGuardrail);
+    if (currentProfitGuardrail !== undefined) {
+      const pg = currentProfitGuardrail;
       if (currentBalance >= pg * 0.95 && currentBalance < pg) {
         status = "APPROACHING_PROFIT";
       }
     }
-    if (guardrails?.lossGuardrail) {
-      const lg = Number(guardrails.lossGuardrail);
+    if (currentLossGuardrail !== undefined) {
+      const lg = currentLossGuardrail;
       if (currentBalance <= lg * 1.05 && currentBalance > lg) {
         status = "APPROACHING_LOSS";
       }
@@ -204,7 +221,12 @@ export async function getCapitalHistory(userId: string) {
     journey,
     currentBalance,
     activeBaseCapital,
-    profile: guardrails,
+    profile: {
+      ...guardrails,
+      // override with current cycle guardrails so the UI uses them
+      profitGuardrail: currentProfitGuardrail !== undefined ? currentProfitGuardrail : (guardrails?.profitGuardrail ?? null),
+      lossGuardrail: currentLossGuardrail !== undefined ? currentLossGuardrail : (guardrails?.lossGuardrail ?? null)
+    },
     status,
     activeBreak,
   };

@@ -149,53 +149,61 @@ export default function AnalyticsPage() {
               value={`${data.summary.totalPnl >= 0 ? '+' : ''}${formatCurrency(data.summary.totalPnl)}`}
               icon={<DollarSign className="w-5 h-5" />}
               trend={data.summary.totalPnl >= 0 ? "up" : "down"}
-              accentColor={data.summary.totalPnl >= 0 ? "var(--color-primary)" : "var(--color-destructive)"}
+              accentColor={data.summary.totalPnl >= 0 ? "var(--success)" : "var(--danger)"}
+              description="Total profit or loss across all trades"
             />
             <MetricCard
               label="TOTAL TRADES"
               value={data.summary.totalTrades.toString()}
               icon={<Activity className="w-5 h-5" />}
-              accentColor="var(--color-accent)"
+              accentColor="var(--accent)"
+              description="Total number of trades taken"
             />
             <MetricCard
               label="WIN RATE"
               value={`${data.summary.winRate}%`}
               icon={<Percent className="w-5 h-5" />}
-              accentColor="var(--color-success)"
+              accentColor="var(--success)"
+              description="Percentage of trades that were profitable"
             />
             <MetricCard
               label="PROFIT FACTOR"
               value={data.summary.profitFactor.toString()}
               icon={<TrendingUp className="w-5 h-5" />}
-              accentColor="var(--color-primary)"
+              accentColor="var(--primary)"
+              description="Gross profit divided by gross loss. Above 1 means profitable."
             />
             <MetricCard
               label="AVG WIN"
               value={`+${formatCurrency(data.summary.avgWin)}`}
               icon={<TrendingUp className="w-5 h-5" />}
               trend="up"
-              accentColor="var(--color-success)"
+              accentColor="var(--success)"
+              description="Average profit per winning trade"
             />
             <MetricCard
               label="AVG LOSS"
               value={`-${formatCurrency(Math.abs(data.summary.avgLoss))}`}
               icon={<TrendingUp className="w-5 h-5 rotate-180" />}
               trend="down"
-              accentColor="var(--color-destructive)"
+              accentColor="var(--danger)"
+              description="Average loss per losing trade"
             />
             <MetricCard
               label="BEST TRADE"
               value={`+${formatCurrency(data.summary.bestTrade)}`}
               icon={<DollarSign className="w-5 h-5" />}
               trend="up"
-              accentColor="var(--color-success)"
+              accentColor="var(--success)"
+              description="The highest profit from a single trade"
             />
             <MetricCard
               label="WORST TRADE"
               value={`-${formatCurrency(Math.abs(data.summary.worstTrade))}`}
               icon={<DollarSign className="w-5 h-5" />}
               trend="down"
-              accentColor="var(--color-destructive)"
+              accentColor="var(--danger)"
+              description="The largest loss from a single trade"
             />
           </div>
 
