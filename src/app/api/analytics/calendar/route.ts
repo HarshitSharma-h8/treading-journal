@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import prisma from "@/lib/prisma";
+import { calculatePnL } from "@/lib/trading-utils";
 
 export async function GET(req: Request) {
   try {
@@ -30,22 +31,25 @@ export async function GET(req: Request) {
     const trades = await prisma.trade.findMany({
       where: {
         userId: session.userId,
-        tradeDate: {
+        entryTime: {
           gte: fromUtc,
           lte: toUtc,
         },
       },
       select: {
-        tradeDate: true,
-        pnl: true,
+        entryTime: true,
+        direction: true,
+        entryPrice: true,
+        exitPrice: true,
+        quantity: true,
       },
     });
 
     const aggregated: Record<string, { pnl: number; tradeCount: number }> = {};
 
     for (const trade of trades) {
-      // Convert tradeDate (UTC) back to IST to determine the local date string
-      const istTime = new Date(trade.tradeDate.getTime() + offsetMs);
+      // Convert entryTime (UTC) back to IST to determine the local date string
+      const istTime = new Date(trade.entryTime.getTime() + offsetMs);
       const yyyy = istTime.getUTCFullYear();
       const mm = String(istTime.getUTCMonth() + 1).padStart(2, "0");
       const dd = String(istTime.getUTCDate()).padStart(2, "0");
@@ -54,7 +58,12 @@ export async function GET(req: Request) {
       if (!aggregated[dateStr]) {
         aggregated[dateStr] = { pnl: 0, tradeCount: 0 };
       }
-      aggregated[dateStr].pnl += Number(trade.pnl);
+      aggregated[dateStr].pnl += calculatePnL(
+        trade.direction,
+        Number(trade.entryPrice),
+        Number(trade.exitPrice),
+        Number(trade.quantity)
+      );
       aggregated[dateStr].tradeCount += 1;
     }
 

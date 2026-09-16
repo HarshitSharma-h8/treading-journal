@@ -12,8 +12,17 @@ export default function ImportTradesPage() {
   const [error, setError] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<any>(null);
   
-  const [journalContent, setJournalContent] = useState("");
   const [journalDate, setJournalDate] = useState(new Date().toISOString().split("T")[0]);
+
+  // Journal Reflection State
+  const [followedTradingPlan, setFollowedTradingPlan] = useState("");
+  const [executionQuality, setExecutionQuality] = useState("");
+  const [whatDidWell, setWhatDidWell] = useState("");
+  const [biggestMistake, setBiggestMistake] = useState("");
+  const [emotionalTrade, setEmotionalTrade] = useState("");
+  const [emotionalTradeOther, setEmotionalTradeOther] = useState("");
+  const [followedRiskManagement, setFollowedRiskManagement] = useState("");
+  const [tomorrowLesson, setTomorrowLesson] = useState("");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -71,38 +80,54 @@ export default function ImportTradesPage() {
     
     const parseTradeDate = (timeStr: any, baseDate: string) => {
       if (!timeStr) return new Date(baseDate || new Date()).toISOString();
-      
       const timeStrStr = String(timeStr);
-      
       const direct = new Date(timeStrStr);
       if (!isNaN(direct.getTime())) return direct.toISOString();
-      
       const withT = new Date(`${baseDate}T${timeStrStr}`);
       if (!isNaN(withT.getTime())) return withT.toISOString();
-      
       const withSpace = new Date(`${baseDate} ${timeStrStr}`);
       if (!isNaN(withSpace.getTime())) return withSpace.toISOString();
-      
       return new Date(baseDate || new Date()).toISOString();
     };
 
     try {
       const payload = {
-        entryDate: journalDate,
-        marketThoughts: journalContent,
-        trades: extractedData.trades.map((t: any) => ({
-          symbol: t.symbol,
-          tradeType: t.tradeType,
-          quantity: Number(t.quantity),
-          entryPrice: Number(t.entryPrice),
-          exitPrice: Number(t.exitPrice),
-          tradeStyle: t.tradeStyle,
-          stopLoss: t.stopLoss ? Number(t.stopLoss) : undefined,
-          target: t.target ? Number(t.target) : undefined,
-          stopLossSource: t.stopLossSource,
-          targetSource: t.targetSource,
-          tradeDate: parseTradeDate(t.entryTime, journalDate)
-        }))
+        date: journalDate,
+        followedTradingPlan: followedTradingPlan || undefined,
+        executionQuality: executionQuality || undefined,
+        whatDidWell: whatDidWell || undefined,
+        biggestMistake: biggestMistake || undefined,
+        emotionalTrade: emotionalTrade || undefined,
+        emotionalTradeOther: emotionalTrade === "OTHER" ? emotionalTradeOther : undefined,
+        followedRiskManagement: followedRiskManagement || undefined,
+        tomorrowLesson: tomorrowLesson || undefined,
+        status: (followedTradingPlan && executionQuality && whatDidWell && biggestMistake) ? "COMPLETED" : "DRAFT",
+
+        trades: extractedData.trades.map((t: any) => {
+          const parsedEntry = parseTradeDate(t.entryTime, journalDate);
+          let parsedExit = t.exitTime ? parseTradeDate(t.exitTime, journalDate) : parsedEntry;
+          
+          if (new Date(parsedExit).getTime() < new Date(parsedEntry).getTime()) {
+            parsedExit = parsedEntry;
+          }
+
+          return {
+            symbol: t.symbol,
+            tradeType: t.tradeType || "INTRADAY",
+            direction: t.direction || "BUY",
+            quantity: Number(t.quantity) || 1,
+            entryPrice: Number(t.entryPrice) || 0,
+            exitPrice: Number(t.exitPrice) || 0,
+            entryTime: parsedEntry,
+            exitTime: parsedExit,
+            stopLoss: t.stopLoss ? Number(t.stopLoss) : undefined,
+            target: t.target ? Number(t.target) : undefined,
+            exitReason: t.exitReason || "MANUAL",
+            source: t.source || "SCREENSHOT",
+            setupStrategy: t.setupStrategy || undefined,
+            tradeNote: t.tradeNote || undefined,
+          };
+        })
       };
       
       const res = await fetch("/api/journal", {
@@ -208,12 +233,25 @@ export default function ImportTradesPage() {
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-foreground/50 uppercase">Direction</label>
                     <select 
+                      value={trade.direction}
+                      onChange={(e) => handleTradeEdit(trade.id, 'direction', e.target.value)}
+                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                    >
+                      <option value="BUY">BUY</option>
+                      <option value="SELL">SELL</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-foreground/50 uppercase">Trade Type</label>
+                    <select 
                       value={trade.tradeType}
                       onChange={(e) => handleTradeEdit(trade.id, 'tradeType', e.target.value)}
                       className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
                     >
-                      <option value="BUY">LONG</option>
-                      <option value="SELL">SHORT</option>
+                      <option value="INTRADAY">INTRADAY</option>
+                      <option value="DELIVERY">DELIVERY</option>
+                      <option value="SWING">SWING</option>
                     </select>
                   </div>
                   
@@ -227,21 +265,6 @@ export default function ImportTradesPage() {
                     />
                   </div>
                   
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground/50 uppercase">Trade Type</label>
-                    <select 
-                      value={trade.tradeStyle || "INTRADAY"}
-                      onChange={(e) => handleTradeEdit(trade.id, 'tradeStyle', e.target.value)}
-                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                    >
-                      <option value="INTRADAY">Intraday</option>
-                      <option value="SWING">Swing</option>
-                      <option value="POSITIONAL">Positional</option>
-                      <option value="SCALPING">Scalping</option>
-                      <option value="DELIVERY">Delivery</option>
-                    </select>
-                  </div>
-
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-foreground/50 uppercase">Entry Price</label>
                     <input 
@@ -270,12 +293,8 @@ export default function ImportTradesPage() {
                       type="number" 
                       step="0.01"
                       value={trade.stopLoss || ""} 
-                      onChange={(e) => {
-                        handleTradeEdit(trade.id, 'stopLoss', e.target.value);
-                        handleTradeEdit(trade.id, 'stopLossSource', 'USER');
-                      }}
+                      onChange={(e) => handleTradeEdit(trade.id, 'stopLoss', e.target.value)}
                       className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                      placeholder={trade.stopLossSource === "AUTO_FROM_EXIT" ? "Auto-generated" : ""}
                     />
                   </div>
                   
@@ -285,13 +304,22 @@ export default function ImportTradesPage() {
                       type="number" 
                       step="0.01"
                       value={trade.target || ""} 
-                      onChange={(e) => {
-                        handleTradeEdit(trade.id, 'target', e.target.value);
-                        handleTradeEdit(trade.id, 'targetSource', 'USER');
-                      }}
+                      onChange={(e) => handleTradeEdit(trade.id, 'target', e.target.value)}
                       className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
-                      placeholder={trade.targetSource === "AUTO_FROM_EXIT" ? "Auto-generated" : ""}
                     />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-foreground/50 uppercase">Exit Reason</label>
+                    <select 
+                      value={trade.exitReason}
+                      onChange={(e) => handleTradeEdit(trade.id, 'exitReason', e.target.value)}
+                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                    >
+                      <option value="TARGET">Target</option>
+                      <option value="STOP_LOSS">Stop Loss</option>
+                      <option value="MANUAL">Manual</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -299,10 +327,11 @@ export default function ImportTradesPage() {
           </div>
           
           <div className="bg-card border border-border rounded-xl p-6">
-            <h2 className="text-2xl font-bold mb-4">Journal Entry</h2>
+            <h2 className="text-2xl font-bold mb-4">Daily Reflection (Optional)</h2>
+            <p className="text-sm text-foreground/60 mb-6">You can answer these now or leave the journal as a draft and complete it later.</p>
             
-            <div className="space-y-4">
-              <div className="space-y-1 max-w-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1">
                 <label className="text-xs font-semibold text-foreground/50 uppercase">Date</label>
                 <input 
                   type="date" 
@@ -311,17 +340,69 @@ export default function ImportTradesPage() {
                   className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
                 />
               </div>
-              
+
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-foreground/50 uppercase">What happened today?</label>
-                <textarea 
-                  value={journalContent} 
-                  onChange={(e) => setJournalContent(e.target.value)}
-                  rows={6}
-                  placeholder="Describe your overall trading session, market conditions, and how you felt..."
-                  className="w-full bg-background border border-border rounded-lg px-4 py-3 focus:outline-none focus:border-primary resize-y"
-                />
+                <label className="text-xs font-semibold text-foreground/50 uppercase">1. Did you follow your trading plan today?</label>
+                <select value={followedTradingPlan} onChange={(e) => setFollowedTradingPlan(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+                  <option value="">Select...</option>
+                  <option value="YES">Yes</option>
+                  <option value="PARTIALLY">Partially</option>
+                  <option value="NO">No</option>
+                </select>
               </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-foreground/50 uppercase">2. How was your overall execution?</label>
+                <select value={executionQuality} onChange={(e) => setExecutionQuality(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+                  <option value="">Select...</option>
+                  <option value="EXCELLENT">Excellent</option>
+                  <option value="GOOD">Good</option>
+                  <option value="AVERAGE">Average</option>
+                  <option value="POOR">Poor</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-foreground/50 uppercase">3. What did you do well today?</label>
+                <textarea value={whatDidWell} onChange={(e) => setWhatDidWell(e.target.value)} maxLength={500} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-y" rows={2}></textarea>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-foreground/50 uppercase">4. What was your biggest mistake today?</label>
+                <textarea value={biggestMistake} onChange={(e) => setBiggestMistake(e.target.value)} maxLength={500} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-y" rows={2}></textarea>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-foreground/50 uppercase">5. Did you take any emotional/unplanned trades?</label>
+                <select value={emotionalTrade} onChange={(e) => setEmotionalTrade(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+                  <option value="">Select...</option>
+                  <option value="NO">No</option>
+                  <option value="FOMO">FOMO</option>
+                  <option value="REVENGE">Revenge</option>
+                  <option value="OVERTRADING">Overtrading</option>
+                  <option value="FEAR">Fear</option>
+                  <option value="GREED">Greed</option>
+                  <option value="OTHER">Other</option>
+                </select>
+                {emotionalTrade === "OTHER" && (
+                  <input type="text" placeholder="Please specify..." value={emotionalTradeOther} onChange={(e) => setEmotionalTradeOther(e.target.value)} maxLength={100} className="mt-2 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" />
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-foreground/50 uppercase">6. Did you follow your risk management rules?</label>
+                <select value={followedRiskManagement} onChange={(e) => setFollowedRiskManagement(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+                  <option value="">Select...</option>
+                  <option value="YES">Yes</option>
+                  <option value="NO">No</option>
+                </select>
+              </div>
+
+              <div className="space-y-1 md:col-span-2">
+                <label className="text-xs font-semibold text-foreground/50 uppercase">7. What is the ONE lesson you will carry into tomorrow?</label>
+                <textarea value={tomorrowLesson} onChange={(e) => setTomorrowLesson(e.target.value)} maxLength={500} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-y" rows={2}></textarea>
+              </div>
+
             </div>
           </div>
           

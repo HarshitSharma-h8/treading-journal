@@ -1,13 +1,22 @@
 import { Trade } from "@/lib/types";
 
 // Helper to ensure Decimal/string types from API are parsed into actual numbers
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseTrade(trade: any): Trade {
+  const entryPrice = Number(trade.entryPrice || 0);
+  const exitPrice = Number(trade.exitPrice || 0);
+  const quantity = Number(trade.quantity || 0);
+  
+  const pnl = trade.direction === "BUY"
+    ? (exitPrice - entryPrice) * quantity
+    : (entryPrice - exitPrice) * quantity;
+
   return {
     ...trade,
-    pnl: Number(trade.pnl || 0),
-    entryPrice: Number(trade.entryPrice || 0),
-    exitPrice: Number(trade.exitPrice || 0),
-    quantity: Number(trade.quantity || 0),
+    pnl,
+    entryPrice,
+    exitPrice,
+    quantity,
     stopLoss: trade.stopLoss != null ? Number(trade.stopLoss) : undefined,
     target: trade.target != null ? Number(trade.target) : undefined,
   };

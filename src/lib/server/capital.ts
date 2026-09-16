@@ -21,7 +21,7 @@ export async function getCapitalHistory(userId: string) {
 
   const trades = await prisma.trade.findMany({
     where: { userId },
-    orderBy: { tradeDate: "asc" },
+    orderBy: { entryTime: "asc" },
   });
 
   const guardrails = await prisma.user.findUnique({
@@ -51,7 +51,7 @@ export async function getCapitalHistory(userId: string) {
     })),
     ...trades.map((t) => ({
       type: "TRADE",
-      date: t.tradeDate,
+      date: t.entryTime,
       data: t,
     })),
   ].sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -113,7 +113,12 @@ export async function getCapitalHistory(userId: string) {
       }
     } else if (event.type === "TRADE") {
       const tr = event.data as typeof trades[0];
-      amount = Number(tr.pnl);
+      const entryPrice = Number(tr.entryPrice);
+      const exitPrice = Number(tr.exitPrice);
+      const quantity = Number(tr.quantity);
+      amount = tr.direction === "BUY" 
+        ? (exitPrice - entryPrice) * quantity 
+        : (entryPrice - exitPrice) * quantity;
       eventType = "TRADE";
       tradeId = tr.id;
       currentBalance += amount;

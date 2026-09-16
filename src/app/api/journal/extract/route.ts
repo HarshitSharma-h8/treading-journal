@@ -40,40 +40,39 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     
-    // Process trades to apply default SL/Target rules
+    // Process trades to map to TradeInput format
     const processedTrades = data.trades?.map((trade: any) => {
       let stopLoss = trade.stopLoss || null;
       let target = trade.target || null;
-      let stopLossSource = "USER"; 
-      let targetSource = "USER";
-
+      let exitPrice = trade.exit?.price || trade.exitPrice || null;
+      
       const pnl = trade.pnl || 0;
+      let exitReason = "MANUAL";
       
       if (pnl < 0) {
-        stopLoss = trade.exit?.price || trade.exitPrice || stopLoss;
-        target = null;
-        stopLossSource = "AUTO_FROM_EXIT";
+        exitReason = "STOP_LOSS";
+        stopLoss = stopLoss || exitPrice;
       } else if (pnl > 0) {
-        target = trade.exit?.price || trade.exitPrice || target;
-        stopLoss = null;
-        targetSource = "AUTO_FROM_EXIT";
+        exitReason = "TARGET";
+        target = target || exitPrice;
       }
 
       return {
         id: `temp-${Math.random().toString(36).substring(2, 9)}`,
-        symbol: trade.symbol,
-        tradeType: trade.direction === "LONG" ? "BUY" : "SELL", 
-        quantity: trade.quantity,
-        entryPrice: trade.entry?.price || trade.entryPrice,
-        exitPrice: trade.exit?.price || trade.exitPrice,
-        entryTime: trade.entry?.time || trade.entryTime,
-        exitTime: trade.exit?.time || trade.exitTime,
-        pnl: pnl,
-        tradeStyle: "INTRADAY",
+        symbol: trade.symbol || "",
+        tradeType: "INTRADAY", // Default to INTRADAY for extraction
+        direction: trade.direction === "LONG" || trade.side === "BUY" ? "BUY" : "SELL", 
+        quantity: trade.quantity || 0,
+        entryPrice: trade.entry?.price || trade.entryPrice || 0,
+        exitPrice: exitPrice || 0,
+        entryTime: trade.entry?.time || trade.entryTime || new Date().toISOString(),
+        exitTime: trade.exit?.time || trade.exitTime || new Date().toISOString(),
         stopLoss,
         target,
-        stopLossSource,
-        targetSource,
+        exitReason,
+        source: "SCREENSHOT",
+        setupStrategy: null,
+        tradeNote: null,
       };
     }) || [];
 

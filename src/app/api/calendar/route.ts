@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth/session";
+import { calculatePnL } from "@/lib/trading-utils";
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,32 +29,46 @@ export async function GET(request: NextRequest) {
     const endOfMonth = new Date(startOfMonth);
     endOfMonth.setMonth(endOfMonth.getMonth() + 1);
 
-    const trades = await prisma.trade.findMany({
+    const tradesDb = await prisma.trade.findMany({
       where: {
         userId: session.userId,
-        tradeDate: {
+        entryTime: {
           gte: startOfMonth,
           lt: endOfMonth,
         },
       },
       select: {
-        tradeDate: true,
-        pnl: true,
+        entryTime: true,
+        direction: true,
+        entryPrice: true,
+        exitPrice: true,
+        quantity: true,
       },
     });
 
-    const journalEntries = await prisma.journalEntry.findMany({
+    const trades = tradesDb.map(t => ({
+      tradeDate: t.entryTime, // frontend might expect tradeDate
+      entryTime: t.entryTime,
+      pnl: calculatePnL(t.direction, Number(t.entryPrice), Number(t.exitPrice), Number(t.quantity))
+    }));
+
+    const journalEntriesDb = await prisma.journal.findMany({
       where: {
         userId: session.userId,
-        entryDate: {
+        date: {
           gte: startOfMonth,
           lt: endOfMonth,
         },
       },
       select: {
-        entryDate: true,
+        date: true,
       },
     });
+
+    const journalEntries = journalEntriesDb.map(j => ({
+      entryDate: j.date, // frontend might expect entryDate
+      date: j.date,
+    }));
 
     return NextResponse.json({ trades, journalEntries });
   } catch (error) {

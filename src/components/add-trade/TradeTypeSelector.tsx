@@ -1,8 +1,8 @@
-import { TradeType } from "@/lib/types";
+import { Direction } from "@/lib/types";
 
 interface TradeTypeSelectorProps {
-  value: TradeType;
-  onChange: (value: TradeType) => void;
+  value: Direction;
+  onChange: (value: Direction) => void;
 }
 
 export function TradeTypeSelector({ value, onChange }: TradeTypeSelectorProps) {

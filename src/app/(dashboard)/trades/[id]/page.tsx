@@ -44,9 +44,10 @@ export default function TradeDetailsPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const isWin = trade.pnl > 0;
-  const isLoss = trade.pnl < 0;
-  const riskReward = trade.stopLoss && trade.target ? calculateRiskReward(trade.tradeType, trade.entryPrice, trade.stopLoss, trade.target) : null;
+  const pnl = trade.pnl ?? (trade.direction === "BUY" ? (trade.exitPrice - trade.entryPrice) * trade.quantity : (trade.entryPrice - trade.exitPrice) * trade.quantity);
+  const isWin = pnl > 0;
+  const isLoss = pnl < 0;
+  const riskReward = trade.stopLoss && trade.target ? calculateRiskReward(trade.direction, trade.entryPrice, trade.stopLoss, trade.target) : null;
 
   const handleRemoveScreenshot = async () => {
     if (confirm("Remove screenshot from this trade?")) {
@@ -77,7 +78,7 @@ export default function TradeDetailsPage({ params }: { params: Promise<{ id: str
           <div>
             <div className="flex flex-wrap items-center gap-3 text-foreground/70 mb-2">
               <span>
-                {new Date(trade.tradeDate).toLocaleDateString("en-IN", {
+                {new Date(trade.entryTime || trade.tradeDate || new Date()).toLocaleDateString("en-IN", {
                   day: "numeric", month: "long", year: "numeric"
                 })}
               </span>
@@ -85,9 +86,9 @@ export default function TradeDetailsPage({ params }: { params: Promise<{ id: str
             <div className="flex items-center gap-4">
               <h1 className="text-4xl font-bold tracking-tight">{trade.symbol}</h1>
               <span className={`px-3 py-1 rounded-md text-sm font-bold ${
-                trade.tradeType === "BUY" ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
+                trade.direction === "BUY" ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
               }`}>
-                {trade.tradeType}
+                {trade.direction}
               </span>
               <span className="text-foreground/50 font-medium">·</span>
               <span className="text-foreground/80 font-medium">{trade.quantity} Qty</span>
@@ -96,7 +97,7 @@ export default function TradeDetailsPage({ params }: { params: Promise<{ id: str
           
           <div className="flex flex-col items-start md:items-end w-full md:w-auto">
             <div className={`text-4xl font-bold ${isWin ? "text-success" : isLoss ? "text-danger" : ""}`}>
-              {isWin ? "+" : ""}{formatCurrency(trade.pnl)}
+              {isWin ? "+" : ""}{formatCurrency(pnl)}
             </div>
           </div>
         </div>

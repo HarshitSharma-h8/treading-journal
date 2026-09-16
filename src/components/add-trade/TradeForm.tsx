@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { TradeTypeSelector } from "./TradeTypeSelector";
 import { PnLPreview } from "./PnLPreview";
 import { TradeContextSection } from "./TradeContextSection";
 import { PostTradeReflection } from "./PostTradeReflection";
 import { ScreenshotUploader } from "./ScreenshotUploader";
-import { TradeType, Emotion, MarketCondition, Trade } from "@/lib/types";
+import { Direction, TradeTypeEnum, Emotion, MarketCondition, Trade } from "@/lib/types";
 import { createTrade, updateTrade, getTrade } from "@/lib/api/trades";
 import { calculatePnL, calculateRiskReward } from "@/lib/trading-utils";
 import { useEffect } from "react";
@@ -15,15 +15,17 @@ import { PenLine } from "lucide-react";
 
 export function TradeForm({ tradeId }: { tradeId?: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const journalIdParam = searchParams.get("journalId");
 
   // Primary fields
   const [date, setDate] = useState<string>(new Date().toISOString().split("T")[0]);
   const [symbol, setSymbol] = useState("");
-  const [tradeType, setTradeType] = useState<TradeType>("BUY");
+  const [direction, setDirection] = useState<Direction>("BUY");
   const [entryPrice, setEntryPrice] = useState<number | "">("");
   const [exitPrice, setExitPrice] = useState<number | "">("");
   const [quantity, setQuantity] = useState<number | "">("");
-  const [tradeStyle, setTradeStyle] = useState<string>("INTRADAY");
+  const [tradeType, setTradeType] = useState<TradeTypeEnum>("INTRADAY");
 
   // Optional fields
   const [strategy, setStrategy] = useState("");
@@ -33,7 +35,7 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
   const [tradeSetup, setTradeSetup] = useState("");
   const [emotion, setEmotion] = useState<Emotion | "">("");
   const [planFollowed, setPlanFollowed] = useState<boolean | null>(null);
-  const [quickNote, setQuickNote] = useState("");
+  const [tradeNote, setTradeNote] = useState("");
   const [whatWentWell, setWhatWentWell] = useState("");
   const [whatWentWrong, setWhatWentWrong] = useState("");
   const [lesson, setLesson] = useState("");
@@ -46,21 +48,21 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
         try {
           const existingTrade = await getTrade(id);
           if (existingTrade) {
-            if (existingTrade.tradeDate) setDate(existingTrade.tradeDate.split("T")[0] || "");
+            if (existingTrade.entryTime) setDate(existingTrade.entryTime.split("T")[0] || "");
             setSymbol(existingTrade.symbol);
-            setTradeType(existingTrade.tradeType);
+            setDirection(existingTrade.direction);
             setEntryPrice(existingTrade.entryPrice);
             setExitPrice(existingTrade.exitPrice);
             setQuantity(existingTrade.quantity);
-            if (existingTrade.tradeStyle) setTradeStyle(existingTrade.tradeStyle);
+            if (existingTrade.tradeType) setTradeType(existingTrade.tradeType);
             if (existingTrade.strategyId) setStrategy(existingTrade.strategyId);
             if (existingTrade.stopLoss) setStopLoss(existingTrade.stopLoss);
             if (existingTrade.target) setTarget(existingTrade.target);
             if (existingTrade.marketCondition) setMarketCondition(existingTrade.marketCondition);
-            if (existingTrade.tradeSetup) setTradeSetup(existingTrade.tradeSetup);
+            if (existingTrade.setupStrategy) setTradeSetup(existingTrade.setupStrategy);
             if (existingTrade.emotion) setEmotion(existingTrade.emotion);
             if (existingTrade.planFollowed !== undefined && existingTrade.planFollowed !== null) setPlanFollowed(existingTrade.planFollowed);
-            if (existingTrade.quickNote) setQuickNote(existingTrade.quickNote);
+            if (existingTrade.tradeNote) setTradeNote(existingTrade.tradeNote);
             if (existingTrade.whatWentWell) setWhatWentWell(existingTrade.whatWentWell);
             if (existingTrade.whatWentWrong) setWhatWentWrong(existingTrade.whatWentWrong);
             if (existingTrade.lesson) setLesson(existingTrade.lesson);
@@ -71,8 +73,24 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
         }
       }
       fetchTrade(tradeId);
+    } else if (journalIdParam) {
+      async function fetchJournalDate(id: string) {
+        try {
+          const res = await fetch(`/api/journal/${id}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.entryDate) {
+              const d = new Date(data.entryDate);
+              setDate(d.toISOString().split("T")[0]);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch journal for date prefill", err);
+        }
+      }
+      fetchJournalDate(journalIdParam);
     }
-  }, [tradeId]);
+  }, [tradeId, journalIdParam]);
 
   // Validation
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -91,17 +109,21 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
     entryPrice !== "" && entryPrice > 0 &&
     exitPrice !== "" && exitPrice > 0 &&
     quantity !== "" && quantity > 0 &&
+    stopLoss !== "" && stopLoss > 0 &&
+    target !== "" && target > 0 &&
+    tradeSetup.trim().length > 0 &&
+    tradeNote.trim().length > 0 &&
     Object.keys(errors).length === 0;
 
   const currentPnL = useMemo(() => {
     if (entryPrice === "" || exitPrice === "" || quantity === "") return null;
-    return calculatePnL(tradeType, entryPrice, exitPrice, quantity);
-  }, [tradeType, entryPrice, exitPrice, quantity]);
+    return calculatePnL(direction, entryPrice, exitPrice, quantity);
+  }, [direction, entryPrice, exitPrice, quantity]);
 
   const riskReward = useMemo(() => {
     if (entryPrice === "" || stopLoss === "" || target === "") return null;
-    return calculateRiskReward(tradeType, entryPrice, stopLoss, target);
-  }, [tradeType, entryPrice, stopLoss, target]);
+    return calculateRiskReward(direction, entryPrice, stopLoss, target);
+  }, [direction, entryPrice, stopLoss, target]);
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -110,26 +132,30 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
 
     setIsSaving(true);
     const newTrade: Partial<Trade> = {
-      tradeDate: new Date(date).toISOString(),
+      entryTime: new Date(date).toISOString(),
+      exitTime: new Date(date).toISOString(), // Same day by default
       symbol: symbol.trim().toUpperCase(),
+      direction,
       tradeType,
       entryPrice: entryPrice as number,
       exitPrice: exitPrice as number,
       quantity: quantity as number,
-      tradeStyle,
+      exitReason: "MANUAL",
+      source: "MANUAL",
       
+      stopLoss: stopLoss as number,
+      target: target as number,
+      setupStrategy: tradeSetup,
+      tradeNote: tradeNote,
       // Strategy is not yet supported in the backend properly (foreign key to Strategy table), so we don't send it.
-      ...(stopLoss !== "" && { stopLoss: stopLoss as number }),
-      ...(target !== "" && { target: target as number }),
       ...(marketCondition && { marketCondition }),
-      ...(tradeSetup && { tradeSetup }),
       ...(emotion && { emotion }),
       ...(planFollowed !== null && { planFollowed }),
-      ...(quickNote && { quickNote }),
       ...(whatWentWell && { whatWentWell }),
       ...(whatWentWrong && { whatWentWrong }),
       ...(lesson && { lesson }),
-      ...(screenshot && { screenshot })
+      ...(screenshot && { screenshot }),
+      ...(journalIdParam && { journalId: journalIdParam })
     };
 
     try {
@@ -140,7 +166,11 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
         savedTrade = await createTrade(newTrade);
       }
       
-      router.push(`/trades/${savedTrade.id}`);
+      if (journalIdParam) {
+        router.push(`/journal/${journalIdParam}`);
+      } else {
+        router.push(`/trades/${savedTrade.id}`);
+      }
       router.refresh();
     } catch (err) {
       console.error("Failed to save trade:", err);
@@ -182,20 +212,18 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground/80">Direction <span className="text-danger">*</span></label>
-            <TradeTypeSelector value={tradeType} onChange={setTradeType} />
+            <TradeTypeSelector value={direction} onChange={setDirection} />
           </div>
           
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground/80">Trade Type <span className="text-danger">*</span></label>
             <select
-              value={tradeStyle}
-              onChange={(e) => setTradeStyle(e.target.value)}
+              value={tradeType}
+              onChange={(e) => setTradeType(e.target.value as TradeTypeEnum)}
               className="w-full bg-card border border-border rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow appearance-none"
             >
               <option value="INTRADAY">Intraday</option>
               <option value="SWING">Swing</option>
-              <option value="POSITIONAL">Positional</option>
-              <option value="SCALPING">Scalping</option>
               <option value="DELIVERY">Delivery</option>
             </select>
           </div>
@@ -261,7 +289,7 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
         {/* Optional Stop Loss and Target embedded here to keep it out of context */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground/80">Stop Loss <span className="text-foreground/40 font-normal">(Optional)</span></label>
+            <label className="text-sm font-medium text-foreground/80">Stop Loss <span className="text-danger">*</span></label>
             <input
               type="number"
               step="any"
@@ -273,7 +301,7 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground/80">Target <span className="text-foreground/40 font-normal">(Optional)</span></label>
+            <label className="text-sm font-medium text-foreground/80">Target <span className="text-danger">*</span></label>
             <input
               type="number"
               step="any"
@@ -300,8 +328,8 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
         setEmotion={setEmotion}
         planFollowed={planFollowed}
         setPlanFollowed={setPlanFollowed}
-        quickNote={quickNote}
-        setQuickNote={setQuickNote}
+        quickNote={tradeNote}
+        setQuickNote={setTradeNote}
         tradeSetup={tradeSetup}
         setTradeSetup={setTradeSetup}
       />
@@ -310,13 +338,13 @@ export function TradeForm({ tradeId }: { tradeId?: string }) {
       <div className="space-y-6 mt-8">
         <div className="flex items-center gap-2 pb-2 border-b border-border/50">
           <PenLine className="w-4 h-4 text-primary" />
-          <h3 className="font-semibold text-sm tracking-widest text-foreground/50 uppercase">Journal</h3>
+          <h3 className="font-semibold text-sm tracking-widest text-foreground/50 uppercase">Journal <span className="text-danger">*</span></h3>
         </div>
         
         <div className="space-y-2">
           <textarea
-            value={quickNote}
-            onChange={(e) => setQuickNote(e.target.value)}
+            value={tradeNote}
+            onChange={(e) => setTradeNote(e.target.value)}
             placeholder="What were you thinking when you took this trade?"
             className="w-full bg-card border border-border rounded-xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow resize-y min-h-[120px] text-foreground/90 leading-relaxed"
             maxLength={2000}

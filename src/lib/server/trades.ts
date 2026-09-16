@@ -1,9 +1,13 @@
 import prisma from "../prisma";
+import { TradeInput } from "../validations/trade";
+import { createTrade as _createTrade } from "./trade-service";
 
 export async function getTrades(userId: string) {
+  // PnL is no longer stored in the database.
+  // The caller or UI should calculate PnL on the fly using utility functions.
   return prisma.trade.findMany({
     where: { userId },
-    orderBy: { tradeDate: "desc" },
+    orderBy: { entryTime: "desc" },
   });
 }
 
@@ -16,67 +20,13 @@ export async function getTrade(userId: string, tradeId: string) {
   });
 }
 
-type CreateTradeData = {
-  symbol: string;
-  tradeType: "BUY" | "SELL";
-  entryPrice: number;
-  exitPrice: number;
-  quantity: number;
-  stopLoss?: number;
-  target?: number;
-  strategyId?: string;
-  emotion?: string;
-  marketCondition?: string;
-  tradeSetup?: string;
-  planFollowed?: boolean;
-  quickNote?: string;
-  whatWentWell?: string;
-  whatWentWrong?: string;
-  lesson?: string;
-  tradeDate?: Date;
-};
-
-export async function createTrade(userId: string, data: CreateTradeData) {
-  const rawPnl =
-    data.tradeType === "BUY"
-      ? (data.exitPrice - data.entryPrice) * data.quantity
-      : (data.entryPrice - data.exitPrice) * data.quantity;
-  const pnl = Number(rawPnl.toFixed(4));
-
-  return prisma.trade.create({
-    data: {
-      userId,
-      symbol: data.symbol,
-      tradeType: data.tradeType,
-      entryPrice: data.entryPrice,
-      exitPrice: data.exitPrice,
-      quantity: data.quantity,
-      stopLoss: data.stopLoss,
-      target: data.target,
-      pnl: pnl,
-      strategyId: data.strategyId,
-      emotion: data.emotion,
-      marketCondition: data.marketCondition,
-      tradeSetup: data.tradeSetup,
-      planFollowed: data.planFollowed,
-      quickNote: data.quickNote,
-      whatWentWell: data.whatWentWell,
-      whatWentWrong: data.whatWentWrong,
-      lesson: data.lesson,
-      tradeDate: data.tradeDate || new Date(),
-    },
-  });
-}
-
-type UpdateTradeData = Partial<CreateTradeData>;
+export const createTrade = _createTrade;
 
 export async function updateTrade(
   userId: string,
   tradeId: string,
-  data: UpdateTradeData
+  data: Partial<TradeInput>
 ) {
-  // We need to calculate PnL if relevant fields are updated.
-  // Easiest is to fetch existing, merge, and recalculate.
   const existingTrade = await prisma.trade.findFirst({
     where: { id: tradeId, userId },
   });
@@ -85,38 +35,37 @@ export async function updateTrade(
     throw new Error("Trade not found");
   }
 
-  const tradeType = data.tradeType ?? existingTrade.tradeType;
-  const entryPrice = data.entryPrice ?? existingTrade.entryPrice.toNumber();
-  const exitPrice = data.exitPrice ?? existingTrade.exitPrice.toNumber();
-  const quantity = data.quantity ?? existingTrade.quantity.toNumber();
-
-  const rawPnl =
-    tradeType === "BUY"
-      ? (exitPrice - entryPrice) * quantity
-      : (entryPrice - exitPrice) * quantity;
-  const pnl = Number(rawPnl.toFixed(4));
-
+  // Update logic. We map the partial data to the schema.
   return prisma.trade.update({
     where: { id: tradeId },
     data: {
       symbol: data.symbol,
       tradeType: data.tradeType,
+      direction: data.direction,
       entryPrice: data.entryPrice,
-      exitPrice: data.exitPrice,
+      entryTime: data.entryTime,
       quantity: data.quantity,
-      stopLoss: data.stopLoss,
-      target: data.target,
-      pnl: pnl,
+      stopLoss: data.stopLoss === null ? undefined : data.stopLoss,
+      target: data.target === null ? undefined : data.target,
+      exitPrice: data.exitPrice,
+      exitTime: data.exitTime,
+      setupStrategy: data.setupStrategy === null ? undefined : data.setupStrategy,
+      exitReason: data.exitReason,
+      tradeNote: data.tradeNote === null ? undefined : data.tradeNote,
+      source: data.source,
+
       strategyId: data.strategyId,
       emotion: data.emotion,
       marketCondition: data.marketCondition,
-      tradeSetup: data.tradeSetup,
       planFollowed: data.planFollowed,
-      quickNote: data.quickNote,
       whatWentWell: data.whatWentWell,
       whatWentWrong: data.whatWentWrong,
       lesson: data.lesson,
-      tradeDate: data.tradeDate,
+      tradeStyle: data.tradeStyle,
+      stopLossSource: data.stopLossSource,
+      targetSource: data.targetSource,
+      // We don't automatically update journalId on trade update unless specifically requested
+      ...(data.journalId ? { journalId: data.journalId } : {}),
     },
   });
 }

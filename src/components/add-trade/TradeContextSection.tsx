@@ -48,7 +48,7 @@ export function TradeContextSection({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground/80">Trade Setup</label>
+          <label className="text-sm font-medium text-foreground/80">Trade Setup <span className="text-danger">*</span></label>
           <input
             type="text"
             value={tradeSetup}

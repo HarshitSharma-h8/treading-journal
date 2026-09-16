@@ -8,10 +8,12 @@ interface TradeSummaryProps {
 export function TradeSummary({ trades }: TradeSummaryProps) {
   const totalTrades = trades.length;
   
-  const winningTrades = trades.filter((t) => t.pnl > 0).length;
-  const losingTrades = trades.filter((t) => t.pnl < 0).length;
+  const getPnl = (t: Trade) => t.pnl ?? (t.direction === "BUY" ? (t.exitPrice - t.entryPrice) * t.quantity : (t.entryPrice - t.exitPrice) * t.quantity);
+  
+  const winningTrades = trades.filter((t) => getPnl(t) > 0).length;
+  const losingTrades = trades.filter((t) => getPnl(t) < 0).length;
 
-  const totalPnL = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+  const totalPnL = trades.reduce((sum, t) => sum + getPnl(t), 0);
   
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

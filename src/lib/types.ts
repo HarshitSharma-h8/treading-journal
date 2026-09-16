@@ -1,4 +1,6 @@
-export type TradeType = "BUY" | "SELL";
+export type Direction = "BUY" | "SELL";
+
+export type TradeTypeEnum = "INTRADAY" | "SWING" | "DELIVERY";
 
 export type Emotion = 
   | "Calm" 
@@ -19,25 +21,42 @@ export type MarketCondition =
 
 export interface Trade {
   id: string;
-  tradeDate: string; // Prisma uses tradeDate (sent as string JSON)
+  journalId: string;
   symbol: string;
-  tradeType: TradeType;
+  direction: Direction;
+  tradeType: TradeTypeEnum;
   entryPrice: number;
   exitPrice: number;
   quantity: number;
-  pnl: number;
+  entryTime: string;
+  exitTime?: string;
+  
+  // Optional/Computed fields (PnL is now computed on the fly on the frontend, but we might pass it from somewhere. Wait, getTrades won't return pnl unless we calculate it. Wait, the frontend calculates it.)
+  pnl?: number;
   
   // Optional fields
-  strategyId?: string; // Prisma uses strategyId
   stopLoss?: number;
   target?: number;
+  setupStrategy?: string;
+  exitReason?: string;
+  tradeNote?: string;
+  source?: string;
+  
+  // Backward compatibility
+  strategyId?: string;
   marketCondition?: MarketCondition;
-  tradeSetup?: string;
   emotion?: Emotion;
   planFollowed?: boolean;
+  tradeStyle?: string;
+  stopLossSource?: string;
+  targetSource?: string;
+  
+  // Deprecated fields kept for typing backwards compatibility
+  tradeDate?: string;
+  tradeSetup?: string;
   quickNote?: string;
   whatWentWell?: string;
   whatWentWrong?: string;
   lesson?: string;
-  screenshot?: string; // Storing as base64 or object URL for now
+  screenshot?: string;
 }

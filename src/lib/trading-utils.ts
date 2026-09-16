@@ -1,4 +1,4 @@
-import { TradeType } from "./types";
+import { TradeDirection } from "@prisma/client";
 
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-IN", {
@@ -11,7 +11,7 @@ export function formatCurrency(amount: number): string {
 
 // A simple Decimal fallback in case decimal.js is not installed yet
 // Using simple multiply by 10000 technique to avoid floating point issues
-export function calculatePnL(type: TradeType, entry: number, exit: number, qty: number): number {
+export function calculatePnL(type: TradeDirection, entry: number, exit: number, qty: number): number {
   if (!entry || !exit || !qty) return 0;
   
   const entryCents = Math.round(entry * 10000);
@@ -25,7 +25,7 @@ export function calculatePnL(type: TradeType, entry: number, exit: number, qty: 
   }
 }
 
-export function calculateRiskReward(type: TradeType, entry: number, stopLoss: number, target: number): string | null {
+export function calculateRiskReward(type: TradeDirection, entry: number, stopLoss: number, target: number): string | null {
   if (!entry || !stopLoss || !target) return null;
   
   let risk = 0;

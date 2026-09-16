@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth/session";
 import { journalSchema } from "@/lib/validations/journal";
 import { z } from "zod";
+import { calculatePnL } from "@/lib/trading-utils";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -17,32 +18,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
     
-    const entry = await prisma.journalEntry.findUnique({
+    const entry = await prisma.journal.findUnique({
       where: { id },
+      include: { trades: { orderBy: { entryTime: 'desc' } } }
     });
 
     if (!entry || entry.userId !== session.userId) {
       return NextResponse.json({ error: "Journal entry not found" }, { status: 404 });
     }
 
-    const startOfDay = new Date(entry.entryDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(entry.entryDate);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const trades = await prisma.trade.findMany({
-      where: {
-        userId: session.userId,
-        tradeDate: { gte: startOfDay, lte: endOfDay },
-      },
-      select: { pnl: true }
-    });
+    const trades = entry.trades;
 
     let dailyPnl = 0;
     let winningTrades = 0;
     
     trades.forEach(t => {
-      const pnlNum = Number(t.pnl);
+      const pnlNum = calculatePnL(t.direction, Number(t.entryPrice), Number(t.exitPrice), Number(t.quantity));
       dailyPnl += pnlNum;
       if (pnlNum > 0) winningTrades++;
     });
@@ -53,7 +44,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       winRate: trades.length > 0 ? Math.round((winningTrades / trades.length) * 100) : 0,
     };
 
-    return NextResponse.json({ ...entry, tradeStats });
+    // return the shape expected by frontend, if needed mapping date to entryDate
+    return NextResponse.json({ ...entry, entryDate: entry.date, tradeStats });
   } catch (error) {
     console.error("Error fetching journal entry:", error);
     return NextResponse.json({ error: "Failed to fetch journal entry" }, { status: 500 });
@@ -70,7 +62,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     
     // Verify ownership
-    const existingEntry = await prisma.journalEntry.findUnique({
+    const existingEntry = await prisma.journal.findUnique({
       where: { id },
     });
 
@@ -81,19 +73,28 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const body = await request.json();
     const validatedData = journalSchema.parse(body);
 
-    const updatedEntry = await prisma.journalEntry.update({
+    const updatedEntry = await prisma.journal.update({
       where: { id },
       data: {
-        entryDate: validatedData.entryDate, // Might want to ensure it doesn't conflict with another day
+        date: validatedData.date,
+        followedTradingPlan: validatedData.followedTradingPlan,
+        executionQuality: validatedData.executionQuality,
+        whatDidWell: validatedData.whatDidWell?.trim() || null,
+        biggestMistake: validatedData.biggestMistake?.trim() || null,
+        emotionalTrade: validatedData.emotionalTrade,
+        emotionalTradeOther: validatedData.emotionalTradeOther?.trim() || null,
+        followedRiskManagement: validatedData.followedRiskManagement,
+        tomorrowLesson: validatedData.tomorrowLesson?.trim() || null,
+        status: validatedData.status,
+        // Backward compatibility
         marketThoughts: validatedData.marketThoughts?.trim() || null,
-        whatWentWell: validatedData.whatWentWell?.trim() || null,
         whatWentWrong: validatedData.whatWentWrong?.trim() || null,
         mistakes: validatedData.mistakes?.trim() || null,
         lessons: validatedData.lessons?.trim() || null,
       },
     });
 
-    return NextResponse.json(updatedEntry);
+    return NextResponse.json({ ...updatedEntry, entryDate: updatedEntry.date });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Validation error", details: error.issues }, { status: 400 });
@@ -113,7 +114,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     
     // Verify ownership
-    const existingEntry = await prisma.journalEntry.findUnique({
+    const existingEntry = await prisma.journal.findUnique({
       where: { id },
     });
 
@@ -121,7 +122,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "Journal entry not found" }, { status: 404 });
     }
 
-    await prisma.journalEntry.delete({
+    await prisma.journal.delete({
       where: { id },
     });
 

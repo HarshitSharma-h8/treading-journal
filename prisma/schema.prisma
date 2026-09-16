@@ -8,70 +8,64 @@ datasource db {
 }
 
 model User {
-  id                  String         @id @default(uuid())
-  email               String         @unique
+  id                  String           @id @default(uuid())
+  email               String           @unique
   passwordHash        String
   name                String?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-  
-  // Capital Profile & Guardrails
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
   experienceLevel     String?
+  lossGuardrail       Decimal?         @db.Decimal(18, 4)
+  onboardingCompleted Boolean          @default(false)
   primaryMarket       String?
-  onboardingCompleted Boolean        @default(false)
-  profitGuardrail     Decimal?       @db.Decimal(18, 4)
-  lossGuardrail       Decimal?       @db.Decimal(18, 4)
-
-  trades              Trade[]
-  strategies          Strategy[]
-  journalEntries      JournalEntry[]
+  profitGuardrail     Decimal?         @db.Decimal(18, 4)
   capitalEvents       CapitalEvent[]
   guardrailEvents     GuardrailEvent[]
-}
-
-enum TradeType {
-  BUY
-  SELL
+  journals            Journal[]
+  strategies          Strategy[]
+  trades              Trade[]
 }
 
 model Trade {
-  id              String      @id @default(uuid())
+  id              String          @id @default(uuid())
   userId          String
   symbol          String
-  tradeType       TradeType
-  entryPrice      Decimal     @db.Decimal(18, 4)
-  exitPrice       Decimal     @db.Decimal(18, 4)
-  quantity        Decimal     @db.Decimal(18, 4)
-  stopLoss        Decimal?    @db.Decimal(18, 4)
-  target          Decimal?    @db.Decimal(18, 4)
-  pnl             Decimal     @db.Decimal(18, 4)
+  entryPrice      Decimal         @db.Decimal(18, 4)
+  exitPrice       Decimal         @db.Decimal(18, 4)
+  quantity        Decimal         @db.Decimal(18, 4)
+  stopLoss        Decimal         @db.Decimal(18, 4)
+  target          Decimal         @db.Decimal(18, 4)
   strategyId      String?
   emotion         String?
   marketCondition String?
-  tradeSetup      String?
+  setupStrategy   String          @map("tradeSetup")
+  entryTime       DateTime        @default(now()) @map("tradeDate")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  lesson          String?
   planFollowed    Boolean?
-  quickNote       String?
+  tradeNote       String          @map("quickNote")
   whatWentWell    String?
   whatWentWrong   String?
-  lesson          String?
-  tradeDate       DateTime    @default(now())
-  tradeStyle      String?
+  journalId       String          @map("journalEntryId")
   stopLossSource  String?
   targetSource    String?
-  journalEntryId  String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  strategy        Strategy?     @relation(fields: [strategyId], references: [id], onDelete: SetNull)
-  journalEntry    JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+  tradeStyle      String?
+  exitReason      TradeExitReason @default(MANUAL)
+  exitTime        DateTime        @default(now())
+  source          TradeSource     @default(MANUAL)
+  tradeType       TradeTypeEnum   @default(INTRADAY) @map("tradeTypeNew")
+  direction       TradeDirection  @map("tradeType")
   screenshots     Screenshot[]
+  journal         Journal         @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  strategy        Strategy?       @relation(fields: [strategyId], references: [id])
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([tradeDate])
+  @@index([entryTime])
   @@index([symbol])
   @@index([strategyId])
-  @@index([userId, tradeDate])
+  @@index([userId, entryTime])
 }
 
 model Strategy {
@@ -81,29 +75,36 @@ model Strategy {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  trades      Trade[]
-
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trades      Trade[]
 
   @@index([userId])
 }
 
-model JournalEntry {
-  id             String   @id @default(uuid())
-  userId         String
-  entryDate      DateTime @default(now())
-  marketThoughts String?
-  whatWentWell   String?
-  whatWentWrong  String?
-  mistakes       String?
-  lessons        String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+model Journal {
+  id                     String            @id @default(uuid())
+  userId                 String
+  date                   DateTime          @default(now()) @map("entryDate")
+  marketThoughts         String?
+  whatWentWrong          String?
+  mistakes               String?
+  lessons                String?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  biggestMistake         String?
+  emotionalTrade         EmotionalTrade?
+  emotionalTradeOther    String?           @db.VarChar(100)
+  executionQuality       ExecutionQuality?
+  followedRiskManagement RiskManagement?
+  followedTradingPlan    FollowedPlan?
+  status                 JournalStatus     @default(DRAFT)
+  tomorrowLesson         String?
+  whatDidWell            String?
+  user                   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trades                 Trade[]
 
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  trades         Trade[]
-
-  @@unique([userId, entryDate])
+  @@unique([userId, date])
+  @@map("JournalEntry")
 }
 
 model Screenshot {
@@ -114,16 +115,7 @@ model Screenshot {
   mimeType         String
   fileSize         Int
   createdAt        DateTime @default(now())
-
   trade            Trade    @relation(fields: [tradeId], references: [id], onDelete: Cascade)
-}
-
-enum CapitalEventType {
-  STARTING_CAPITAL
-  DEPOSIT
-  WITHDRAWAL
-  CAPITAL_RESET
-  ADJUSTMENT
 }
 
 model CapitalEvent {
@@ -134,16 +126,10 @@ model CapitalEvent {
   eventDate DateTime         @default(now())
   note      String?
   createdAt DateTime         @default(now())
-
   user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([eventDate])
-}
-
-enum GuardrailType {
-  PROFIT
-  LOSS
 }
 
 model GuardrailEvent {
@@ -153,11 +139,78 @@ model GuardrailEvent {
   triggerBalance Decimal       @db.Decimal(18, 4)
   reason         String?
   guardrailType  GuardrailType
-  status         String        @default("ACTIVE") // ACTIVE or RESUMED
+  status         String        @default("ACTIVE")
   createdAt      DateTime      @default(now())
-
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([eventDate])
+}
+
+enum TradeDirection {
+  BUY
+  SELL
+}
+
+enum TradeTypeEnum {
+  INTRADAY
+  DELIVERY
+  SWING
+}
+
+enum TradeExitReason {
+  TARGET
+  STOP_LOSS
+  MANUAL
+}
+
+enum TradeSource {
+  MANUAL
+  SCREENSHOT
+}
+
+enum JournalStatus {
+  DRAFT
+  COMPLETED
+}
+
+enum ExecutionQuality {
+  EXCELLENT
+  GOOD
+  AVERAGE
+  POOR
+}
+
+enum EmotionalTrade {
+  NO
+  FOMO
+  REVENGE
+  OVERTRADING
+  FEAR
+  GREED
+  OTHER
+}
+
+enum FollowedPlan {
+  YES
+  PARTIALLY
+  NO
+}
+
+enum RiskManagement {
+  YES
+  NO
+}
+
+enum CapitalEventType {
+  STARTING_CAPITAL
+  DEPOSIT
+  WITHDRAWAL
+  CAPITAL_RESET
+  ADJUSTMENT
+}
+
+enum GuardrailType {
+  PROFIT
+  LOSS
 }

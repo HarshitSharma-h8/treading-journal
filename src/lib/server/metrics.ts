@@ -61,7 +61,7 @@ export async function getDashboardMetrics(userId: string) {
   // 1. Fetch all trades to calculate overall metrics
   const allTrades = await prisma.trade.findMany({
     where: { userId },
-    orderBy: { tradeDate: 'asc' },
+    orderBy: { entryTime: 'asc' },
   });
 
   const totalTrades = allTrades.length;
@@ -95,17 +95,24 @@ export async function getDashboardMetrics(userId: string) {
   const chartData = [];
 
   for (const trade of allTrades) {
-    const pnl = Number(trade.pnl);
+    // Calculate PnL on the fly
+    const entryPrice = trade.entryPrice.toNumber();
+    const exitPrice = trade.exitPrice.toNumber();
+    const quantity = trade.quantity.toNumber();
+    const pnl = trade.direction === "BUY" 
+      ? (exitPrice - entryPrice) * quantity 
+      : (entryPrice - exitPrice) * quantity;
+      
     cumulativePnl += pnl;
 
     // Formatting date to a nice string for chart
-    const dateObj = new Date(trade.tradeDate);
+    const dateObj = new Date(trade.entryTime);
     const dateStr = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "Asia/Kolkata" });
     
     chartData.push({
       date: dateStr,
       pnl: cumulativePnl,
-      rawDate: trade.tradeDate
+      rawDate: trade.entryTime
     });
 
     if (pnl > 0) {
@@ -157,16 +164,28 @@ export async function getDashboardMetrics(userId: string) {
   const weekBounds = getKolkataDateBounds("week");
   const monthBounds = getKolkataDateBounds("month");
 
-  const todayTrades = allTrades.filter(t => t.tradeDate >= todayBounds.start && t.tradeDate <= todayBounds.end);
-  const weekTrades = allTrades.filter(t => t.tradeDate >= weekBounds.start && t.tradeDate <= weekBounds.end);
-  const monthTrades = allTrades.filter(t => t.tradeDate >= monthBounds.start && t.tradeDate <= monthBounds.end);
+  const todayTrades = allTrades.filter(t => t.entryTime >= todayBounds.start && t.entryTime <= todayBounds.end);
+  const weekTrades = allTrades.filter(t => t.entryTime >= weekBounds.start && t.entryTime <= weekBounds.end);
+  const monthTrades = allTrades.filter(t => t.entryTime >= monthBounds.start && t.entryTime <= monthBounds.end);
 
-  const todayPnl = todayTrades.reduce((sum, t) => sum + Number(t.pnl), 0);
-  const weekPnl = weekTrades.reduce((sum, t) => sum + Number(t.pnl), 0);
-  const monthPnl = monthTrades.reduce((sum, t) => sum + Number(t.pnl), 0);
+  const calculateTotalPnl = (trades: typeof allTrades) => {
+    return trades.reduce((sum, t) => {
+      const entryPrice = t.entryPrice.toNumber();
+      const exitPrice = t.exitPrice.toNumber();
+      const quantity = t.quantity.toNumber();
+      const pnl = t.direction === "BUY" 
+        ? (exitPrice - entryPrice) * quantity 
+        : (entryPrice - exitPrice) * quantity;
+      return sum + pnl;
+    }, 0);
+  };
+
+  const todayPnl = calculateTotalPnl(todayTrades);
+  const weekPnl = calculateTotalPnl(weekTrades);
+  const monthPnl = calculateTotalPnl(monthTrades);
 
   // Recent 5 trades for the list
-  const recentTrades = [...allTrades].sort((a, b) => b.tradeDate.getTime() - a.tradeDate.getTime()).slice(0, 5);
+  const recentTrades = [...allTrades].sort((a, b) => b.entryTime.getTime() - a.entryTime.getTime()).slice(0, 5);
 
   return {
     totalTrades,

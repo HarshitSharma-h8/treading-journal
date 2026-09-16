@@ -83,9 +83,10 @@ export default function TradesPage() {
     // Result filter
     if (filters.result !== "all") {
       result = result.filter((t) => {
-        if (filters.result === "profitable") return t.pnl > 0;
-        if (filters.result === "loss") return t.pnl < 0;
-        if (filters.result === "breakeven") return t.pnl === 0;
+        const pnl = t.pnl ?? (t.direction === "BUY" ? (t.exitPrice - t.entryPrice) * t.quantity : (t.entryPrice - t.exitPrice) * t.quantity);
+        if (filters.result === "profitable") return pnl > 0;
+        if (filters.result === "loss") return pnl < 0;
+        if (filters.result === "breakeven") return pnl === 0;
         return true;
       });
     }
@@ -94,7 +95,7 @@ export default function TradesPage() {
     if (filters.date !== "all") {
       const now = new Date();
       result = result.filter((t) => {
-        const tradeDateVal = new Date(t.tradeDate);
+        const tradeDateVal = new Date(t.entryTime || t.tradeDate || new Date());
         if (filters.date === "today") {
           return tradeDateVal.toDateString() === now.toDateString();
         }
@@ -118,17 +119,20 @@ export default function TradesPage() {
 
     // Sorting
     result.sort((a, b) => {
+      const pnlA = a.pnl ?? (a.direction === "BUY" ? (a.exitPrice - a.entryPrice) * a.quantity : (a.entryPrice - a.exitPrice) * a.quantity);
+      const pnlB = b.pnl ?? (b.direction === "BUY" ? (b.exitPrice - b.entryPrice) * b.quantity : (b.entryPrice - b.exitPrice) * b.quantity);
+
       if (sortBy === "date-desc") {
-        return new Date(b.tradeDate).getTime() - new Date(a.tradeDate).getTime();
+        return new Date(b.entryTime || b.tradeDate || new Date()).getTime() - new Date(a.entryTime || a.tradeDate || new Date()).getTime();
       }
       if (sortBy === "date-asc") {
-        return new Date(a.tradeDate).getTime() - new Date(b.tradeDate).getTime();
+        return new Date(a.entryTime || a.tradeDate || new Date()).getTime() - new Date(b.entryTime || b.tradeDate || new Date()).getTime();
       }
       if (sortBy === "pnl-desc") {
-        return b.pnl - a.pnl;
+        return pnlB - pnlA;
       }
       if (sortBy === "pnl-asc") {
-        return a.pnl - b.pnl;
+        return pnlA - pnlB;
       }
       return 0;
     });

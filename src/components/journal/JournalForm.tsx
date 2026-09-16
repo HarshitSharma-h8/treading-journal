@@ -2,16 +2,33 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Save, AlertTriangle, Plus, Trash2 } from "lucide-react";
 
+interface TradeEntry {
+  id: string; // client-side only id for keying
+  symbol: string;
+  direction: string;
+  tradeType: string;
+  quantity: string | number;
+  entryPrice: string | number;
+  exitPrice: string | number;
+  stopLoss: string | number;
+  target: string | number;
+  exitReason: string;
+}
 
 interface JournalEntryData {
   id?: string;
   entryDate: string;
-  marketThoughts?: string | null;
-  whatWentWell?: string | null;
-  whatWentWrong?: string | null;
-  mistakes?: string | null;
-  lessons?: string | null;
+  followedTradingPlan?: string | null;
+  executionQuality?: string | null;
+  whatDidWell?: string | null;
+  biggestMistake?: string | null;
+  emotionalTrade?: string | null;
+  emotionalTradeOther?: string | null;
+  followedRiskManagement?: string | null;
+  tomorrowLesson?: string | null;
+  trades?: any[];
 }
 
 interface JournalFormProps {
@@ -28,147 +45,378 @@ export default function JournalForm({ initialData, isEdit = false }: JournalForm
     ? new Date(initialData.entryDate).toISOString().split('T')[0] 
     : new Date().toISOString().split('T')[0];
 
-  const [formData, setFormData] = useState({
-    entryDate: defaultDate,
-    marketThoughts: initialData?.marketThoughts || "",
-    whatWentWell: initialData?.whatWentWell || "",
-    whatWentWrong: initialData?.whatWentWrong || "",
-    mistakes: initialData?.mistakes || "",
-    lessons: initialData?.lessons || "",
-  });
+  const [journalDate, setJournalDate] = useState(defaultDate);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  // Journal Reflection State
+  const [followedTradingPlan, setFollowedTradingPlan] = useState(initialData?.followedTradingPlan || "");
+  const [executionQuality, setExecutionQuality] = useState(initialData?.executionQuality || "");
+  const [whatDidWell, setWhatDidWell] = useState(initialData?.whatDidWell || "");
+  const [biggestMistake, setBiggestMistake] = useState(initialData?.biggestMistake || "");
+  const [emotionalTrade, setEmotionalTrade] = useState(initialData?.emotionalTrade || "");
+  const [emotionalTradeOther, setEmotionalTradeOther] = useState(initialData?.emotionalTradeOther || "");
+  const [followedRiskManagement, setFollowedRiskManagement] = useState(initialData?.followedRiskManagement || "");
+  const [tomorrowLesson, setTomorrowLesson] = useState(initialData?.tomorrowLesson || "");
+
+  // Trades state
+  const generateTempId = () => Math.random().toString(36).substr(2, 9);
+  
+  const [trades, setTrades] = useState<TradeEntry[]>(
+    initialData?.trades?.map(t => ({
+      id: t.id || generateTempId(),
+      symbol: t.symbol || "",
+      direction: t.direction || "BUY",
+      tradeType: t.tradeType || "INTRADAY",
+      quantity: t.quantity || "",
+      entryPrice: t.entryPrice || "",
+      exitPrice: t.exitPrice || "",
+      stopLoss: t.stopLoss || "",
+      target: t.target || "",
+      exitReason: t.exitReason || "MANUAL"
+    })) || []
+  );
+
+  const handleAddTrade = () => {
+    setTrades([...trades, {
+      id: generateTempId(),
+      symbol: "",
+      direction: "BUY",
+      tradeType: "INTRADAY",
+      quantity: "",
+      entryPrice: "",
+      exitPrice: "",
+      stopLoss: "",
+      target: "",
+      exitReason: "MANUAL"
+    }]);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRemoveTrade = (id: string) => {
+    setTrades(trades.filter(t => t.id !== id));
+  };
+
+  const handleTradeEdit = (id: string, field: string, value: any) => {
+    setTrades((prev) => prev.map((t) => 
+      t.id === id ? { ...t, [field]: value } : t
+    ));
+  };
+
+  const handleSubmit = async () => {
     setLoading(true);
     setError(null);
 
+    const parseTradeDate = (timeStr: any, baseDate: string) => {
+      if (!timeStr) return new Date(baseDate || new Date()).toISOString();
+      const timeStrStr = String(timeStr);
+      const direct = new Date(timeStrStr);
+      if (!isNaN(direct.getTime())) return direct.toISOString();
+      const withT = new Date(`${baseDate}T${timeStrStr}`);
+      if (!isNaN(withT.getTime())) return withT.toISOString();
+      const withSpace = new Date(`${baseDate} ${timeStrStr}`);
+      if (!isNaN(withSpace.getTime())) return withSpace.toISOString();
+      return new Date(baseDate || new Date()).toISOString();
+    };
+
     try {
+      const payload = {
+        date: journalDate,
+        followedTradingPlan: followedTradingPlan || undefined,
+        executionQuality: executionQuality || undefined,
+        whatDidWell: whatDidWell || undefined,
+        biggestMistake: biggestMistake || undefined,
+        emotionalTrade: emotionalTrade || undefined,
+        emotionalTradeOther: emotionalTrade === "OTHER" ? emotionalTradeOther : undefined,
+        followedRiskManagement: followedRiskManagement || undefined,
+        tomorrowLesson: tomorrowLesson || undefined,
+        status: (followedTradingPlan && executionQuality && whatDidWell && biggestMistake) ? "COMPLETED" : "DRAFT",
+
+        trades: trades.map((t) => ({
+          symbol: t.symbol,
+          tradeType: t.tradeType || "INTRADAY",
+          direction: t.direction || "BUY",
+          quantity: Number(t.quantity) || 1,
+          entryPrice: Number(t.entryPrice) || 0,
+          exitPrice: Number(t.exitPrice) || 0,
+          entryTime: parseTradeDate(null, journalDate),
+          exitTime: parseTradeDate(null, journalDate),
+          stopLoss: t.stopLoss ? Number(t.stopLoss) : undefined,
+          target: t.target ? Number(t.target) : undefined,
+          exitReason: t.exitReason || "MANUAL",
+          source: "MANUAL",
+        }))
+      };
+      
       const url = isEdit ? `/api/journal/${initialData?.id}` : `/api/journal`;
       const method = isEdit ? "PATCH" : "POST";
 
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          // Make sure we pass an ISO string that corresponds to the start of the selected local date
-          // Simplest is to append time to make it valid ISO if required by schema, but schema uses `z.string().transform(d => new Date(d))` 
-          entryDate: formData.entryDate,
-          marketThoughts: formData.marketThoughts || undefined,
-          whatWentWell: formData.whatWentWell || undefined,
-          whatWentWrong: formData.whatWentWrong || undefined,
-          mistakes: formData.mistakes || undefined,
-          lessons: formData.lessons || undefined,
-        }),
+        body: JSON.stringify(payload)
       });
-
+      
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to save journal entry");
+        const errorData = await res.json();
+        const detailMsg = errorData.details ? (typeof errorData.details === 'string' ? errorData.details : JSON.stringify(errorData.details)) : "";
+        throw new Error((errorData.error || "Failed to save journal and trades.") + (detailMsg ? ` Details: ${detailMsg}` : ""));
       }
-
+      
       router.push("/journal");
       router.refresh();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An error occurred while saving");
+    } catch (err: any) {
+      setError(err.message || "Failed to save.");
       setLoading(false);
     }
   };
 
   return (
-    <div className="p-6 max-w-3xl mx-auto border border-border/50 bg-card rounded-xl shadow-sm">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {error && (
-          <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-md text-red-500 text-sm">
-            {error}
+    <div className="space-y-8 pb-20">
+      {error && (
+        <div className="bg-danger/10 text-danger p-4 rounded-lg flex items-center gap-3 mb-6">
+          <AlertTriangle className="w-5 h-5" />
+          <p>{error}</p>
+        </div>
+      )}
+
+      {/* TRADES SECTION */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold">Trades</h2>
+          {!isEdit && (
+            <button 
+              onClick={handleAddTrade}
+              className="bg-primary/10 text-primary hover:bg-primary/20 px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Add Trade
+            </button>
+          )}
+        </div>
+        
+        {trades.length === 0 ? (
+          <div className="bg-card border border-border rounded-xl p-8 text-center text-foreground/50 text-sm">
+            No trades added yet. Click "Add Trade" to log your trades for the day.
           </div>
+        ) : (
+          trades.map((trade, index) => (
+            <div key={trade.id} className="bg-card border border-border rounded-xl p-6 relative">
+              {!isEdit && (
+                <button 
+                  onClick={() => handleRemoveTrade(trade.id)}
+                  className="absolute top-4 right-4 text-danger/60 hover:text-danger bg-danger/10 p-2 rounded-lg transition-colors"
+                  title="Remove trade"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+              <h3 className="text-lg font-bold mb-4">Trade {index + 1}</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground/50 uppercase">Symbol</label>
+                  <input 
+                    type="text" 
+                    value={trade.symbol} 
+                    onChange={(e) => handleTradeEdit(trade.id, 'symbol', e.target.value.toUpperCase())}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary uppercase"
+                    placeholder="e.g. NIFTY50"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground/50 uppercase">Direction</label>
+                  <select 
+                    value={trade.direction}
+                    onChange={(e) => handleTradeEdit(trade.id, 'direction', e.target.value)}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  >
+                    <option value="BUY">BUY</option>
+                    <option value="SELL">SELL</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground/50 uppercase">Trade Type</label>
+                  <select 
+                    value={trade.tradeType}
+                    onChange={(e) => handleTradeEdit(trade.id, 'tradeType', e.target.value)}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  >
+                    <option value="INTRADAY">INTRADAY</option>
+                    <option value="DELIVERY">DELIVERY</option>
+                    <option value="SWING">SWING</option>
+                  </select>
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground/50 uppercase">Quantity</label>
+                  <input 
+                    type="number" 
+                    value={trade.quantity} 
+                    onChange={(e) => handleTradeEdit(trade.id, 'quantity', e.target.value)}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground/50 uppercase">Entry Price</label>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    value={trade.entryPrice} 
+                    onChange={(e) => handleTradeEdit(trade.id, 'entryPrice', e.target.value)}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground/50 uppercase">Exit Price</label>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    value={trade.exitPrice} 
+                    onChange={(e) => handleTradeEdit(trade.id, 'exitPrice', e.target.value)}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground/50 uppercase">Stop Loss</label>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    value={trade.stopLoss || ""} 
+                    onChange={(e) => handleTradeEdit(trade.id, 'stopLoss', e.target.value)}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground/50 uppercase">Target</label>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    value={trade.target || ""} 
+                    onChange={(e) => handleTradeEdit(trade.id, 'target', e.target.value)}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground/50 uppercase">Exit Reason</label>
+                  <select 
+                    value={trade.exitReason}
+                    onChange={(e) => handleTradeEdit(trade.id, 'exitReason', e.target.value)}
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+                  >
+                    <option value="TARGET">Target</option>
+                    <option value="STOP_LOSS">Stop Loss</option>
+                    <option value="MANUAL">Manual</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          ))
         )}
+      </div>
+      
+      {/* REFLECTION SECTION */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="text-2xl font-bold mb-4">Daily Reflection</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-foreground/50 uppercase">Date</label>
+            <input 
+              type="date" 
+              value={journalDate} 
+              onChange={(e) => setJournalDate(e.target.value)}
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+              disabled={isEdit}
+            />
+          </div>
 
-        <div className="space-y-2">
-          <label htmlFor="entryDate" className="text-sm font-medium leading-none">Date</label>
-          <input 
-            type="date" 
-            id="entryDate" 
-            name="entryDate" 
-            value={formData.entryDate} 
-            onChange={handleChange} 
-            required
-            className="flex h-10 w-full sm:w-auto rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          />
-        </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-foreground/50 uppercase">1. Did you follow your trading plan today?</label>
+            <select value={followedTradingPlan} onChange={(e) => setFollowedTradingPlan(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+              <option value="">Select...</option>
+              <option value="YES">Yes</option>
+              <option value="PARTIALLY">Partially</option>
+              <option value="NO">No</option>
+            </select>
+          </div>
 
-        <div className="space-y-2">
-          <label htmlFor="marketThoughts" className="text-sm font-medium leading-none">How was the market? (Market Thoughts)</label>
-          <textarea 
-            id="marketThoughts" 
-            name="marketThoughts" 
-            value={formData.marketThoughts} 
-            onChange={handleChange} 
-            placeholder="Market was trending after the opening range..." 
-            className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-          />
-        </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-foreground/50 uppercase">2. How was your overall execution?</label>
+            <select value={executionQuality} onChange={(e) => setExecutionQuality(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+              <option value="">Select...</option>
+              <option value="EXCELLENT">Excellent</option>
+              <option value="GOOD">Good</option>
+              <option value="AVERAGE">Average</option>
+              <option value="POOR">Poor</option>
+            </select>
+          </div>
 
-        <div className="space-y-2">
-          <label htmlFor="whatWentWell" className="text-sm font-medium leading-none">What went well?</label>
-          <textarea 
-            id="whatWentWell" 
-            name="whatWentWell" 
-            value={formData.whatWentWell} 
-            onChange={handleChange} 
-            placeholder="Waited for confirmation." 
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-          />
-        </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-foreground/50 uppercase">3. What did you do well today?</label>
+            <textarea value={whatDidWell} onChange={(e) => setWhatDidWell(e.target.value)} maxLength={500} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-y" rows={2}></textarea>
+          </div>
 
-        <div className="space-y-2">
-          <label htmlFor="whatWentWrong" className="text-sm font-medium leading-none">What went wrong?</label>
-          <textarea 
-            id="whatWentWrong" 
-            name="whatWentWrong" 
-            value={formData.whatWentWrong} 
-            onChange={handleChange} 
-            placeholder="Entered the second setup too early." 
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-          />
-        </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-foreground/50 uppercase">4. What was your biggest mistake today?</label>
+            <textarea value={biggestMistake} onChange={(e) => setBiggestMistake(e.target.value)} maxLength={500} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-y" rows={2}></textarea>
+          </div>
 
-        <div className="space-y-2">
-          <label htmlFor="mistakes" className="text-sm font-medium leading-none">Mistakes</label>
-          <textarea 
-            id="mistakes" 
-            name="mistakes" 
-            value={formData.mistakes} 
-            onChange={handleChange} 
-            placeholder="Chased price after missing the first entry." 
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-          />
-        </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-foreground/50 uppercase">5. Did you take any emotional/unplanned trades?</label>
+            <select value={emotionalTrade} onChange={(e) => setEmotionalTrade(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+              <option value="">Select...</option>
+              <option value="NO">No</option>
+              <option value="FOMO">FOMO</option>
+              <option value="REVENGE">Revenge</option>
+              <option value="OVERTRADING">Overtrading</option>
+              <option value="FEAR">Fear</option>
+              <option value="GREED">Greed</option>
+              <option value="OTHER">Other</option>
+            </select>
+            {emotionalTrade === "OTHER" && (
+              <input type="text" placeholder="Please specify..." value={emotionalTradeOther} onChange={(e) => setEmotionalTradeOther(e.target.value)} maxLength={100} className="mt-2 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary" />
+            )}
+          </div>
 
-        <div className="space-y-2">
-          <label htmlFor="lessons" className="text-sm font-medium leading-none">Lessons</label>
-          <textarea 
-            id="lessons" 
-            name="lessons" 
-            value={formData.lessons} 
-            onChange={handleChange} 
-            placeholder="Wait for confirmation instead of chasing." 
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-          />
-        </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-foreground/50 uppercase">6. Did you follow your risk management rules?</label>
+            <select value={followedRiskManagement} onChange={(e) => setFollowedRiskManagement(e.target.value)} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+              <option value="">Select...</option>
+              <option value="YES">Yes</option>
+              <option value="NO">No</option>
+            </select>
+          </div>
 
-        <div className="flex justify-end gap-4 pt-4 border-t border-border/50">
-          <button type="button" className="px-4 py-2 hover:bg-muted text-sm font-medium rounded-md transition-colors" onClick={() => router.back()} disabled={loading}>
-            Cancel
-          </button>
-          <button type="submit" className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium text-sm hover:bg-primary/90 transition-colors shadow" disabled={loading}>
-            {loading ? "Saving..." : "Save Entry"}
-          </button>
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-xs font-semibold text-foreground/50 uppercase">7. What is the ONE lesson you will carry into tomorrow?</label>
+            <textarea value={tomorrowLesson} onChange={(e) => setTomorrowLesson(e.target.value)} maxLength={500} className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary resize-y" rows={2}></textarea>
+          </div>
+
         </div>
-      </form>
+      </div>
+      
+      <div className="flex justify-end gap-4">
+        <button 
+          onClick={() => router.back()}
+          className="bg-card border border-border text-foreground px-6 py-3 rounded-lg font-bold hover:bg-white/5 transition-colors"
+          disabled={loading}
+        >
+          Cancel
+        </button>
+        <button 
+          onClick={handleSubmit}
+          disabled={loading}
+          className="bg-primary text-background px-8 py-3 rounded-lg font-bold hover:bg-primary/90 transition-colors flex items-center gap-2 shadow"
+        >
+          {loading ? "Saving..." : "Save Journal"}
+          {!loading && <Save className="w-5 h-5" />}
+        </button>
+      </div>
     </div>
   );
 }

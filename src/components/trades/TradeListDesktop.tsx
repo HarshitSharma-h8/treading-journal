@@ -30,8 +30,9 @@ export function TradeListDesktop({ trades }: TradeListDesktopProps) {
         </thead>
         <tbody className="divide-y divide-border/50">
           {trades.map((trade) => {
-            const isWin = trade.pnl > 0;
-            const isLoss = trade.pnl < 0;
+            const pnl = trade.pnl ?? (trade.direction === "BUY" ? (trade.exitPrice - trade.entryPrice) * trade.quantity : (trade.entryPrice - trade.exitPrice) * trade.quantity);
+            const isWin = pnl > 0;
+            const isLoss = pnl < 0;
             
             return (
               <tr 
@@ -40,7 +41,7 @@ export function TradeListDesktop({ trades }: TradeListDesktopProps) {
                 className="hover:bg-primary/5 transition-colors cursor-pointer group"
               >
                 <td className="px-6 py-4 text-foreground/80">
-                  {new Date(trade.tradeDate).toLocaleDateString("en-IN", {
+                  {new Date(trade.entryTime || trade.tradeDate!).toLocaleDateString("en-IN", {
                     day: "numeric",
                     month: "short"
                   })}
@@ -48,9 +49,9 @@ export function TradeListDesktop({ trades }: TradeListDesktopProps) {
                 <td className="px-6 py-4 font-medium">{trade.symbol}</td>
                 <td className="px-6 py-4">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
-                    trade.tradeType === "BUY" ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
+                    trade.direction === "BUY" ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
                   }`}>
-                    {trade.tradeType}
+                    {trade.direction}
                   </span>
                 </td>
                 <td className="px-6 py-4">{formatCurrency(trade.entryPrice)}</td>
@@ -59,10 +60,10 @@ export function TradeListDesktop({ trades }: TradeListDesktopProps) {
                 <td className={`px-6 py-4 font-semibold ${
                   isWin ? "text-success" : isLoss ? "text-danger" : ""
                 }`}>
-                  {isWin ? "+" : ""}{formatCurrency(trade.pnl)}
+                  {isWin ? "+" : ""}{formatCurrency(pnl || 0)}
                 </td>
                 <td className="px-6 py-4 text-foreground/80">
-                  {trade.strategyId || "-"}
+                  {trade.setupStrategy || trade.strategyId || "-"}
                 </td>
                 <td className="px-6 py-4 text-foreground/40 group-hover:text-foreground/80 transition-colors">
                   {trade.screenshot && <ImageIcon className="w-4 h-4" />}

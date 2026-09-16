@@ -1,4 +1,5 @@
 import { TradeForm } from "@/components/add-trade/TradeForm";
+import JournalForm from "@/components/journal/JournalForm";
 
 export const metadata = {
   title: "Add Trade | Trading Journal",
@@ -28,7 +29,11 @@ export default async function AddTradePage({
           </p>
         </div>
         
-        <TradeForm tradeId={resolvedParams.id} />
+        {isEditMode ? (
+          <TradeForm tradeId={resolvedParams.id} />
+        ) : (
+          <JournalForm />
+        )}
       </main>
     </div>
   );

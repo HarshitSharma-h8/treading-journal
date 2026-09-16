@@ -33,28 +33,7 @@ export default async function Dashboard() {
       
       <DashboardHeader />
 
-      {/* Capital Journey Row */}
-      {!showOnboarding && (
-        <div className="grid grid-cols-1 lg:grid-cols-[7fr_3fr] gap-6 items-stretch">
-          <div className="h-[450px]">
-            <CapitalJourneyGraph 
-              data={capitalData.journey} 
-              profitGuardrail={capitalData.profile?.profitGuardrail ? Number(capitalData.profile.profitGuardrail) : null}
-              lossGuardrail={capitalData.profile?.lossGuardrail ? Number(capitalData.profile.lossGuardrail) : null}
-              baseCapital={capitalData.activeBaseCapital}
-            />
-          </div>
-          <div className="h-[450px]">
-            <GuardrailStatusCard 
-              currentBalance={capitalData.currentBalance}
-              baseCapital={capitalData.activeBaseCapital}
-              profitGuardrail={capitalData.profile?.profitGuardrail ? Number(capitalData.profile.profitGuardrail) : null}
-              lossGuardrail={capitalData.profile?.lossGuardrail ? Number(capitalData.profile.lossGuardrail) : null}
-              status={capitalData.status}
-            />
-          </div>
-        </div>
-      )}
+      
 
       {hasTrades ? (
         <>
@@ -87,6 +66,29 @@ export default async function Dashboard() {
               accentColor="var(--color-primary)"
             />
           </div>
+
+          {/* Capital Journey Row */}
+      {!showOnboarding && (
+        <div className="grid grid-cols-1 lg:grid-cols-[7fr_3fr] gap-6 items-stretch">
+          <div className="h-[450px]">
+            <CapitalJourneyGraph 
+              data={capitalData.journey} 
+              profitGuardrail={capitalData.profile?.profitGuardrail ? Number(capitalData.profile.profitGuardrail) : null}
+              lossGuardrail={capitalData.profile?.lossGuardrail ? Number(capitalData.profile.lossGuardrail) : null}
+              baseCapital={capitalData.activeBaseCapital}
+            />
+          </div>
+          <div className="h-[450px]">
+            <GuardrailStatusCard 
+              currentBalance={capitalData.currentBalance}
+              baseCapital={capitalData.activeBaseCapital}
+              profitGuardrail={capitalData.profile?.profitGuardrail ? Number(capitalData.profile.profitGuardrail) : null}
+              lossGuardrail={capitalData.profile?.lossGuardrail ? Number(capitalData.profile.lossGuardrail) : null}
+              status={capitalData.status}
+            />
+          </div>
+        </div>
+      )}
 
           {/* Main Chart and Performance Summary Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

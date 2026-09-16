@@ -3,7 +3,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Edit, ArrowLeft, Trash2 } from "lucide-react";
+import { Edit, ArrowLeft, Trash2, Plus } from "lucide-react";
+import { Trade } from "@/lib/types";
+import { formatCurrency, calculatePnL } from "@/lib/trading-utils";
 
 interface JournalEntry {
   id: string;
@@ -13,6 +15,8 @@ interface JournalEntry {
   whatWentWrong: string | null;
   mistakes: string | null;
   lessons: string | null;
+  status: string;
+  trades: Trade[];
   tradeStats?: {
     pnl: number;
     trades: number;
@@ -74,6 +78,17 @@ export default function JournalEntryPage() {
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to delete");
       setIsDeleting(false);
+    }
+  };
+
+  const deleteTrade = async (tradeId: string) => {
+    if (!window.confirm("Delete this trade?")) return;
+    try {
+      const res = await fetch(`/api/trades/${tradeId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete trade");
+      setEntry(prev => prev ? { ...prev, trades: prev.trades.filter(t => t.id !== tradeId) } : null);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to delete");
     }
   };
 
@@ -160,6 +175,85 @@ export default function JournalEntryPage() {
         <Section title="What went wrong?" content={entry.whatWentWrong} />
         <Section title="Mistakes" content={entry.mistakes} />
         <Section title="Lessons" content={entry.lessons} />
+      </div>
+
+      <div className="mt-8 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold tracking-tight">TRADES ({entry.trades?.length || 0})</h2>
+          <Link href={`/add-trade?journalId=${entry.id}`}>
+            <button className="inline-flex items-center px-4 py-2 bg-primary text-background rounded-lg font-semibold hover:bg-primary/90 transition-colors shadow-sm">
+              <Plus className="mr-2 h-4 w-4" /> Add Trade
+            </button>
+          </Link>
+        </div>
+
+        {entry.trades?.length === 0 ? (
+          <div className="p-8 text-center bg-card border border-border/50 rounded-xl">
+            <p className="text-muted-foreground mb-4">No trades recorded for this day yet.</p>
+            <div className="flex justify-center gap-4">
+              <Link href={`/add-trade?journalId=${entry.id}`}>
+                <button className="px-4 py-2 border border-primary/20 text-primary rounded-lg hover:bg-primary/5 transition-colors">
+                  + Add Trade
+                </button>
+              </Link>
+              <Link href={`/import-trades`}>
+                <button className="px-4 py-2 border border-border rounded-lg hover:bg-muted transition-colors">
+                  Import Screenshot
+                </button>
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {entry.trades?.map(trade => {
+              const pnl = calculatePnL(trade.direction, Number(trade.entryPrice), Number(trade.exitPrice), Number(trade.quantity));
+              const isWin = pnl > 0;
+              const isLoss = pnl < 0;
+
+              return (
+                <div key={trade.id} className="bg-card border border-border/50 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-bold text-lg">{trade.symbol}</h3>
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
+                        trade.direction === "BUY" ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
+                      }`}>
+                        {trade.direction}
+                      </span>
+                      <span className="text-xs font-medium text-muted-foreground uppercase">{trade.tradeType}</span>
+                    </div>
+                    <div className="text-sm text-foreground/80 mb-2">
+                      Entry ₹{Number(trade.entryPrice).toLocaleString()} &rarr; Exit ₹{Number(trade.exitPrice).toLocaleString()} <span className="text-muted-foreground ml-2">Qty {Number(trade.quantity)}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(trade.entryTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })} 
+                      {trade.exitTime && trade.exitTime !== trade.entryTime && ` → ${new Date(trade.exitTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`}
+                    </div>
+                  </div>
+                  
+                  <div className="flex sm:flex-col items-center sm:items-end justify-between gap-4">
+                    <div className={`text-lg font-bold ${isWin ? "text-success" : isLoss ? "text-danger" : ""}`}>
+                      {isWin ? "+" : ""}₹{Math.abs(pnl).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Link href={`/add-trade?id=${trade.id}&journalId=${entry.id}`}>
+                        <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors text-sm font-medium">
+                          Edit
+                        </button>
+                      </Link>
+                      <button 
+                        className="p-2 text-red-500/70 hover:text-red-500 hover:bg-red-500/10 rounded-md transition-colors text-sm font-medium"
+                        onClick={() => deleteTrade(trade.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

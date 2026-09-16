@@ -15,10 +15,13 @@ export async function GET(request: NextRequest) {
     const limitParam = searchParams.get("limit");
     const limit = limitParam ? parseInt(limitParam, 10) : 50;
 
-    const entries = await prisma.journalEntry.findMany({
+    const entries = await prisma.journal.findMany({
       where: { userId: session.userId },
-      orderBy: { entryDate: "desc" },
+      orderBy: { date: "desc" },
       take: limit,
+      include: {
+        trades: true,
+      }
     });
 
     return NextResponse.json(entries);
@@ -39,16 +42,15 @@ export async function POST(request: NextRequest) {
     const validatedData = journalSchema.parse(body);
     
     // Check if an entry for this date already exists for the user.
-    // The DB has a unique constraint, but handling it nicely is better.
-    const startOfDay = new Date(validatedData.entryDate);
+    const startOfDay = new Date(validatedData.date);
     startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(validatedData.entryDate);
+    const endOfDay = new Date(validatedData.date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const existingEntry = await prisma.journalEntry.findFirst({
+    const existingEntry = await prisma.journal.findFirst({
       where: {
         userId: session.userId,
-        entryDate: {
+        date: {
           gte: startOfDay,
           lte: endOfDay,
         },
@@ -56,47 +58,57 @@ export async function POST(request: NextRequest) {
     });
 
     const tradesData = validatedData.trades?.map((trade) => {
-      const pnl =
-        trade.tradeType === "BUY"
-          ? (trade.exitPrice - trade.entryPrice) * trade.quantity
-          : (trade.entryPrice - trade.exitPrice) * trade.quantity;
-          
       return {
         userId: session.userId,
         symbol: trade.symbol,
         tradeType: trade.tradeType,
+        direction: trade.direction,
         entryPrice: trade.entryPrice,
         exitPrice: trade.exitPrice,
+        entryTime: trade.entryTime,
+        exitTime: trade.exitTime,
         quantity: trade.quantity,
-        pnl,
-        tradeDate: trade.tradeDate || validatedData.entryDate,
+        stopLoss: trade.stopLoss || 0,
+        target: trade.target || 0,
+        exitReason: trade.exitReason,
+        source: trade.source,
+        tradeNote: trade.tradeNote || "No note provided",
+        setupStrategy: trade.setupStrategy || "None",
+        // Backward compatibility
         tradeStyle: trade.tradeStyle,
-        stopLoss: trade.stopLoss,
-        target: trade.target,
         stopLossSource: trade.stopLossSource,
         targetSource: trade.targetSource,
       };
     }) || [];
 
+    const journalUpdateData = {
+      followedTradingPlan: validatedData.followedTradingPlan,
+      executionQuality: validatedData.executionQuality,
+      whatDidWell: validatedData.whatDidWell?.trim() || null,
+      biggestMistake: validatedData.biggestMistake?.trim() || null,
+      emotionalTrade: validatedData.emotionalTrade,
+      emotionalTradeOther: validatedData.emotionalTradeOther?.trim() || null,
+      followedRiskManagement: validatedData.followedRiskManagement,
+      tomorrowLesson: validatedData.tomorrowLesson?.trim() || null,
+      status: validatedData.status,
+
+      // Backward compatibility fields
+      marketThoughts: validatedData.marketThoughts?.trim() || null,
+      whatWentWrong: validatedData.whatWentWrong?.trim() || null,
+      mistakes: validatedData.mistakes?.trim() || null,
+      lessons: validatedData.lessons?.trim() || null,
+    };
+
     if (existingEntry) {
-      // Instead of failing, update the existing entry (Upsert behavior for same day)
-      // Or just fail. Requirements: "If a user already has an entry for that date: Open/edit the existing entry rather than creating a duplicate."
-      // Since this is POST (create), the frontend should ideally redirect to edit if one exists, but if they post, we can just update it.
       const updatedEntry = await prisma.$transaction(async (tx) => {
-        const entry = await tx.journalEntry.update({
+        const entry = await tx.journal.update({
           where: { id: existingEntry.id },
-          data: {
-            marketThoughts: validatedData.marketThoughts?.trim() || null,
-            whatWentWell: validatedData.whatWentWell?.trim() || null,
-            whatWentWrong: validatedData.whatWentWrong?.trim() || null,
-            mistakes: validatedData.mistakes?.trim() || null,
-            lessons: validatedData.lessons?.trim() || null,
-          },
+          data: journalUpdateData,
         });
 
         if (tradesData.length > 0) {
           await tx.trade.createMany({
-            data: tradesData.map(t => ({ ...t, journalEntryId: entry.id }))
+            data: tradesData.map(t => ({ ...t, journalId: entry.id }))
           });
         }
         
@@ -106,21 +118,17 @@ export async function POST(request: NextRequest) {
     }
 
     const newEntry = await prisma.$transaction(async (tx) => {
-      const entry = await tx.journalEntry.create({
+      const entry = await tx.journal.create({
         data: {
           userId: session.userId,
-          entryDate: validatedData.entryDate,
-          marketThoughts: validatedData.marketThoughts?.trim() || null,
-          whatWentWell: validatedData.whatWentWell?.trim() || null,
-          whatWentWrong: validatedData.whatWentWrong?.trim() || null,
-          mistakes: validatedData.mistakes?.trim() || null,
-          lessons: validatedData.lessons?.trim() || null,
+          date: validatedData.date,
+          ...journalUpdateData,
         },
       });
       
       if (tradesData.length > 0) {
         await tx.trade.createMany({
-          data: tradesData.map(t => ({ ...t, journalEntryId: entry.id }))
+          data: tradesData.map(t => ({ ...t, journalId: entry.id }))
         });
       }
 
@@ -134,7 +142,6 @@ export async function POST(request: NextRequest) {
     }
     console.error("Error creating journal entry:", error);
     
-    // Check if it's a Prisma error (they usually have a code or clientVersion)
     const isPrismaError = error && typeof error === 'object' && ('code' in error || 'clientVersion' in error);
     const errorMessage = isPrismaError ? "Database error occurred while saving the journal entry." : (error as any).message || "Unknown error occurred";
     

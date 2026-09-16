@@ -17,7 +17,7 @@ export function MetricCard({ label, value, subtext, icon, trend, accentColor = "
     <div className="relative overflow-hidden bg-card border border-border rounded-2xl p-5 hover:border-foreground/20 transition-colors">
       {/* Subtle background glow */}
       <div 
-        className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-3xl opacity-20 pointer-events-none"
+        className="absolute -top-10 -right-10 w-24 h-24 rounded-full blur-3xl opacity-80 pointer-events-none"
         style={{ backgroundColor: accentColor }}
       />
       

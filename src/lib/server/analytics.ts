@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { calculatePnL } from "../trading-utils";
 
 export type AnalyticsRange = "7d" | "30d" | "90d" | "all";
 
@@ -29,12 +30,12 @@ function toNum(decimal: Prisma.Decimal | null | undefined): number {
 export async function getAnalyticsSummary(userId: string, startDate?: Date) {
   const where = {
     userId,
-    ...(startDate ? { tradeDate: { gte: startDate } } : {})
+    ...(startDate ? { entryTime: { gte: startDate } } : {})
   };
 
   const trades = await prisma.trade.findMany({
     where,
-    select: { pnl: true }
+    select: { direction: true, entryPrice: true, exitPrice: true, quantity: true }
   });
 
   let totalPnl = 0;
@@ -46,7 +47,7 @@ export async function getAnalyticsSummary(userId: string, startDate?: Date) {
   let worstTrade = trades.length > 0 ? Infinity : 0;
 
   for (const t of trades) {
-    const pnl = toNum(t.pnl);
+    const pnl = calculatePnL(t.direction, toNum(t.entryPrice), toNum(t.exitPrice), toNum(t.quantity));
     totalPnl += pnl;
 
     if (pnl > 0) {
@@ -92,22 +93,23 @@ export async function getAnalyticsSummary(userId: string, startDate?: Date) {
 export async function getPnLSeries(userId: string, startDate?: Date) {
   const where = {
     userId,
-    ...(startDate ? { tradeDate: { gte: startDate } } : {})
+    ...(startDate ? { entryTime: { gte: startDate } } : {})
   };
 
   const trades = await prisma.trade.findMany({
     where,
-    orderBy: { tradeDate: "asc" },
-    select: { tradeDate: true, pnl: true }
+    orderBy: { entryTime: "asc" },
+    select: { entryTime: true, direction: true, entryPrice: true, exitPrice: true, quantity: true }
   });
 
   let cumulative = 0;
   return trades.map(t => {
-    cumulative += toNum(t.pnl);
+    const pnl = calculatePnL(t.direction, toNum(t.entryPrice), toNum(t.exitPrice), toNum(t.quantity));
+    cumulative += pnl;
     return {
-      date: t.tradeDate.toISOString(),
+      date: t.entryTime.toISOString(),
       cumulativePnl: cumulative,
-      pnl: toNum(t.pnl)
+      pnl: pnl
     };
   });
 }
@@ -115,7 +117,7 @@ export async function getPnLSeries(userId: string, startDate?: Date) {
 export async function getStrategyPerformance(userId: string, startDate?: Date) {
   const where = {
     userId,
-    ...(startDate ? { tradeDate: { gte: startDate } } : {})
+    ...(startDate ? { entryTime: { gte: startDate } } : {})
   };
 
   const trades = await prisma.trade.findMany({
@@ -131,7 +133,7 @@ export async function getStrategyPerformance(userId: string, startDate?: Date) {
   }>();
 
   for (const t of trades) {
-    const pnl = toNum(t.pnl);
+    const pnl = calculatePnL(t.direction, toNum(t.entryPrice), toNum(t.exitPrice), toNum(t.quantity));
     const key = t.strategy?.name || "No Strategy";
     
     if (!strategyMap.has(key)) {
@@ -155,12 +157,12 @@ export async function getStrategyPerformance(userId: string, startDate?: Date) {
 export async function getSymbolPerformance(userId: string, startDate?: Date) {
   const where = {
     userId,
-    ...(startDate ? { tradeDate: { gte: startDate } } : {})
+    ...(startDate ? { entryTime: { gte: startDate } } : {})
   };
 
   const trades = await prisma.trade.findMany({
     where,
-    select: { symbol: true, pnl: true }
+    select: { symbol: true, direction: true, entryPrice: true, exitPrice: true, quantity: true }
   });
 
   const symbolMap = new Map<string, {
@@ -171,7 +173,7 @@ export async function getSymbolPerformance(userId: string, startDate?: Date) {
   }>();
 
   for (const t of trades) {
-    const pnl = toNum(t.pnl);
+    const pnl = calculatePnL(t.direction, toNum(t.entryPrice), toNum(t.exitPrice), toNum(t.quantity));
     const key = t.symbol;
     
     if (!symbolMap.has(key)) {
@@ -195,13 +197,13 @@ export async function getSymbolPerformance(userId: string, startDate?: Date) {
 export async function getStreaks(userId: string, startDate?: Date) {
   const where = {
     userId,
-    ...(startDate ? { tradeDate: { gte: startDate } } : {})
+    ...(startDate ? { entryTime: { gte: startDate } } : {})
   };
 
   const trades = await prisma.trade.findMany({
     where,
-    orderBy: { tradeDate: "asc" },
-    select: { pnl: true }
+    orderBy: { entryTime: "asc" },
+    select: { direction: true, entryPrice: true, exitPrice: true, quantity: true }
   });
 
   let currentWinStreak = 0;
@@ -213,7 +215,7 @@ export async function getStreaks(userId: string, startDate?: Date) {
   let tempLossStreak = 0;
 
   for (const t of trades) {
-    const pnl = toNum(t.pnl);
+    const pnl = calculatePnL(t.direction, toNum(t.entryPrice), toNum(t.exitPrice), toNum(t.quantity));
     if (pnl > 0) {
       tempWinStreak++;
       tempLossStreak = 0;
@@ -243,13 +245,13 @@ export async function getStreaks(userId: string, startDate?: Date) {
 export async function getDailyPerformance(userId: string, startDate?: Date) {
   const where = {
     userId,
-    ...(startDate ? { tradeDate: { gte: startDate } } : {})
+    ...(startDate ? { entryTime: { gte: startDate } } : {})
   };
 
   const trades = await prisma.trade.findMany({
     where,
-    orderBy: { tradeDate: "desc" }, // to get recent days
-    select: { tradeDate: true, pnl: true }
+    orderBy: { entryTime: "desc" }, // to get recent days
+    select: { entryTime: true, direction: true, entryPrice: true, exitPrice: true, quantity: true }
   });
 
   const dailyMap = new Map<string, {
@@ -260,7 +262,7 @@ export async function getDailyPerformance(userId: string, startDate?: Date) {
 
   for (const t of trades) {
     // Format in IST context YYYY-MM-DD
-    const d = new Date(t.tradeDate.getTime() + 5.5 * 60 * 60 * 1000);
+    const d = new Date(t.entryTime.getTime() + 5.5 * 60 * 60 * 1000);
     const dateStr = d.toISOString().split("T")[0];
     
     if (!dailyMap.has(dateStr)) {
@@ -268,7 +270,7 @@ export async function getDailyPerformance(userId: string, startDate?: Date) {
     }
     const stat = dailyMap.get(dateStr)!;
     stat.trades++;
-    stat.pnl += toNum(t.pnl);
+    stat.pnl += calculatePnL(t.direction, toNum(t.entryPrice), toNum(t.exitPrice), toNum(t.quantity));
   }
 
   // Convert to array and sort desc

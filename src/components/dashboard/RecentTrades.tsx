@@ -29,9 +29,9 @@ export function RecentTrades({ trades }: { trades: Trade[] }) {
           </thead>
           <tbody>
             {trades.map((trade) => {
-              const pnlValue = Number(trade.pnl);
+              const pnlValue = trade.pnl ?? (trade.direction === "BUY" ? (trade.exitPrice - trade.entryPrice) * trade.quantity : (trade.entryPrice - trade.exitPrice) * trade.quantity);
               const isProfit = pnlValue > 0;
-              const dateStr = new Date(trade.tradeDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+              const dateStr = new Date(trade.entryTime || trade.tradeDate || new Date()).toLocaleDateString("en-US", { month: "short", day: "numeric" });
               
               return (
                 <tr key={trade.id} className="border-b border-border/20 hover:bg-white/[0.02] transition-colors relative group">
@@ -41,12 +41,12 @@ export function RecentTrades({ trades }: { trades: Trade[] }) {
                   </td>
                   <td className="py-4">
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      trade.tradeType === "BUY" ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
+                      trade.direction === "BUY" ? "bg-primary/10 text-primary" : "bg-accent/10 text-accent"
                     }`}>
-                      {trade.tradeType}
+                      {trade.direction}
                     </span>
                   </td>
-                  <td className="py-4 text-foreground/70">{trade.strategyId || 'N/A'}</td>
+                  <td className="py-4 text-foreground/70">{trade.strategyId || trade.setupStrategy || 'N/A'}</td>
                   <td className="py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <span className={`font-medium ${isProfit ? "text-success" : (pnlValue < 0 ? "text-danger" : "text-foreground/70")}`}>

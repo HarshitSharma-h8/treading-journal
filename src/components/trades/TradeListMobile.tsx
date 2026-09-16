@@ -14,8 +14,9 @@ export function TradeListMobile({ trades }: TradeListMobileProps) {
   return (
     <div className="md:hidden flex flex-col gap-3">
       {trades.map((trade) => {
-        const isWin = trade.pnl > 0;
-        const isLoss = trade.pnl < 0;
+        const pnl = trade.pnl ?? (trade.direction === "BUY" ? (trade.exitPrice - trade.entryPrice) * trade.quantity : (trade.entryPrice - trade.exitPrice) * trade.quantity);
+        const isWin = pnl > 0;
+        const isLoss = pnl < 0;
 
         return (
           <div 
@@ -28,20 +29,20 @@ export function TradeListMobile({ trades }: TradeListMobileProps) {
                 <h3 className="font-bold text-lg leading-tight">{trade.symbol}</h3>
                 <div className="flex items-center gap-2 mt-1">
                   <span className={`text-xs font-semibold ${
-                    trade.tradeType === "BUY" ? "text-success" : "text-danger"
+                    trade.direction === "BUY" ? "text-success" : "text-danger"
                   }`}>
-                    {trade.tradeType}
+                    {trade.direction}
                   </span>
-                  {trade.strategyId && (
+                  {(trade.setupStrategy || trade.strategyId) && (
                     <>
                       <span className="text-foreground/30">•</span>
-                      <span className="text-xs text-foreground/60">{trade.strategyId}</span>
+                      <span className="text-xs text-foreground/60">{trade.setupStrategy || trade.strategyId}</span>
                     </>
                   )}
                 </div>
               </div>
               <div className={`font-bold ${isWin ? "text-success" : isLoss ? "text-danger" : ""}`}>
-                {isWin ? "+" : ""}{formatCurrency(trade.pnl)}
+                {isWin ? "+" : ""}{formatCurrency(pnl || 0)}
               </div>
             </div>
 
@@ -55,7 +56,7 @@ export function TradeListMobile({ trades }: TradeListMobileProps) {
                 </div>
               </div>
               <div className="text-xs text-foreground/50">
-                {new Date(trade.tradeDate).toLocaleDateString("en-IN", {
+                {new Date(trade.entryTime || trade.tradeDate!).toLocaleDateString("en-IN", {
                   day: "numeric",
                   month: "short",
                   year: "numeric"
