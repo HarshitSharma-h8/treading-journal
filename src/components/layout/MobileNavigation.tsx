@@ -16,7 +16,7 @@ import {
 import { useState } from "react";
 
 const mainNavItems = [
-  { name: "Home", href: "/", icon: <LayoutDashboard className="w-6 h-6" /> },
+  { name: "Home", href: "/dashboard", icon: <LayoutDashboard className="w-6 h-6" /> },
   { name: "Trades", href: "/trades", icon: <LineChart className="w-6 h-6" /> },
   { name: "Add", href: "/add-trade", icon: <PlusCircle className="w-6 h-6" />, isPrimary: true },
   { name: "Calendar", href: "/calendar", icon: <CalendarDays className="w-6 h-6" /> },

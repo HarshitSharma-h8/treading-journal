@@ -19,7 +19,7 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { name: "Dashboard", href: "/", icon: <LayoutDashboard className="w-5 h-5" /> },
+  { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
   { name: "Trades", href: "/trades", icon: <LineChart className="w-5 h-5" /> },
   { name: "Calendar", href: "/calendar", icon: <CalendarDays className="w-5 h-5" /> },
   { name: "Analytics", href: "/analytics", icon: <BarChart3 className="w-5 h-5" /> },
